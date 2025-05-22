@@ -57,6 +57,7 @@ You need to run two components separately: the FastAPI backend and the Streamlit
 3.  Click "Get AI Estimate for N and Cohen's d". The application will contact the FastAPI backend, which in turn queries the Gemini API.
     * The AI-estimated Total N and Cohen's d will populate the input fields.
     * A snippet of the text processed by the AI will be shown in an expander.
+    * Any references the AI identifies will be listed in a "References" section.
 4.  Adjust the "Total Number of Participants (N)" and "Expected Cohen's d" using the input fields or sliders.
 5.  The "Calculated P-Value" will update automatically based on your adjustments.
     * The tool will also indicate if the p-value is typically considered statistically significant (< 0.05).
@@ -66,3 +67,4 @@ You need to run two components separately: the FastAPI backend and the Streamlit
 * The p-value is calculated assuming a **two-sample, two-sided t-test** with **equal sample sizes** in each of the two groups (N_total / 2 per group).
 * It answers the question: "If a study with `N_total` participants observed an effect size of `Cohen's d`, what would the p-value be?"
 * This is **not** a power calculation (which determines the probability of detecting an effect of a certain size).
+* References listed by the AI are not guaranteed to be exhaustive or correct and should be independently verified.
