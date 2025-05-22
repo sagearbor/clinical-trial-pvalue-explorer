@@ -1,0 +1,17 @@
+#requirements.txt
+#For Streamlit Frontend
+streamlit
+
+#For FastAPI Backend
+fastapi
+uvicorn[standard] # For running the FastAPI server
+python-dotenv     # For loading .env files (API key)
+httpx             # For making async HTTP requests to Gemini API
+
+#For URL processing (Backend)
+requests
+beautifulsoup4
+
+#For P-Value Calculation (Streamlit)
+numpy
+scipy
