@@ -21,42 +21,29 @@ def calculate_p_value_from_N_d(N_total, cohens_d):
     
     N_total_int = int(N_total)
 
-    # For a two-sample t-test, each group must have at least 2 participants for variance calculation,
-    # so n_per_group > 1. This means N_total / 2 > 1, so N_total > 2.
-    # Degrees of freedom df = (n1 - 1) + (n2 - 1) = n1 + n2 - 2 = N_total - 2.
-    # df must be > 0.
-    
-    if N_total_int <= 2: # Stricter check, ensuring df > 0
+    if N_total_int <= 2: 
         return None, "Total N must be greater than 2 for valid degrees of freedom."
 
     n_per_group = N_total_int / 2.0
-    if n_per_group <= 1: # Each group must have more than 1 participant
+    if n_per_group <= 1: 
          return None, "Sample size per group (N_total / 2) must be greater than 1."
 
-
-    # If Cohen's d is 0, t-statistic is 0, p-value is 1.
     if cohens_d == 0:
         return 1.0, "With Cohen's d = 0, the t-statistic is 0, leading to a p-value of 1.0 (no effect observed)."
 
-    # Calculate the t-statistic from Cohen's d for two independent groups of equal size n_per_group
-    # t = d * sqrt(n_per_group / 2)
-    #   where n_per_group = N_total / 2
-    #   So, t = d * sqrt((N_total / 2) / 2) = d * sqrt(N_total / 4) = d * (sqrt(N_total) / 2)
     try:
-        # Ensure n_per_group / 2 is not zero or negative, though previous checks should cover this.
         if (n_per_group / 2.0) <= 0:
             return None, "Invalid internal calculation for t-statistic (sqrt of non-positive)."
         t_statistic = cohens_d * np.sqrt(n_per_group / 2.0) 
-    except FloatingPointError: # Handles potential issues with very small numbers if any
+    except FloatingPointError: 
         return None, "Numerical instability in t-statistic calculation."
 
-
-    df = N_total_int - 2 # Degrees of freedom
-    if df <= 0: # Should be caught by N_total_int > 2
+    df = N_total_int - 2 
+    if df <= 0: 
         return None, "Degrees of freedom (N_total - 2) must be positive."
 
     try:
-        p_value = (1 - stats.t.cdf(abs(t_statistic), df)) * 2 # Two-sided p-value
+        p_value = (1 - stats.t.cdf(abs(t_statistic), df)) * 2 
     except Exception as e:
         return None, f"Error during SciPy p-value calculation: {str(e)}"
         
@@ -82,8 +69,9 @@ if 'current_p_value' not in st.session_state:
     st.session_state.current_p_value = None
 if 'p_value_message' not in st.session_state:
     st.session_state.p_value_message = ""
+if 'llm_provider_used' not in st.session_state: # New session state variable
+    st.session_state.llm_provider_used = ""
 
-# Use values from session state for inputs to ensure they persist after AI call
 if 'current_N' not in st.session_state:
     st.session_state.current_N = st.session_state.initial_N
 if 'current_d' not in st.session_state:
@@ -102,24 +90,24 @@ with st.sidebar:
     )
     st.header("P-Value Calculation Formulas")
     st.markdown(
-        """
+        r"""
         The p-value is calculated for a **two-sample, two-sided t-test** with equal group sizes.
         
-        1.  **Sample size per group ($n_{group}$):**
-            $n_{group} = N_{total} / 2$
+        1.  **Sample size per group ($n_{\text{group}}$):**
+            $n_{\text{group}} = N_{\text{total}} / 2$
         
         2.  **Cohen's d (Effect Size):**
             This is your input. It represents the standardized difference between two means:
-            $d = (M_1 - M_2) / \sigma_{pooled}$
+            $d = (M_1 - M_2) / \sigma_{\text{pooled}}$
             
         3.  **t-statistic (from Cohen's d):**
-            For two independent groups of equal size $n_{group}$:
-            $t = d \cdot \sqrt{n_{group} / 2}$
-            Substituting $n_{group} = N_{total} / 2$:
-            $t = d \cdot \sqrt{(N_{total} / 2) / 2} = d \cdot \sqrt{N_{total} / 4} = d \cdot \frac{\sqrt{N_{total}}}{2}$
+            For two independent groups of equal size $n_{\text{group}}$:
+            $t = d \cdot \sqrt{n_{\text{group}} / 2}$
+            Substituting $n_{\text{group}} = N_{\text{total}} / 2$:
+            $t = d \cdot \sqrt{(N_{\text{total}} / 2) / 2} = d \cdot \sqrt{N_{\text{total}} / 4} = d \cdot \frac{\sqrt{N_{\text{total}}}}{2}$
 
         4.  **Degrees of Freedom (df):**
-            $df = N_{total} - 2$
+            $df = N_{\text{total}} - 2$
             
         5.  **P-value:**
             Calculated from the t-distribution using the absolute $t$-statistic and $df$.
@@ -128,49 +116,45 @@ with st.sidebar:
 
 
 st.header("1. Describe Your Research Idea")
-text_idea = st.text_area("Enter your clinical trial research idea here:", height=150, key="text_idea_input_v2")
-url_idea = st.text_input("Or provide a URL with relevant content (optional):", key="url_idea_input_v2")
+text_idea = st.text_area("Enter your clinical trial research idea here:", height=150, key="text_idea_input_v3") # Incremented key
+url_idea = st.text_input("Or provide a URL with relevant content (optional):", key="url_idea_input_v3") # Incremented key
 
-if st.button("Get AI Estimate for N, Cohen's d, and Justification", key="get_estimate_button_v2"):
+if st.button("Get AI Estimate for N, Cohen's d, and Justification", key="get_estimate_button_v3"): # Incremented key
     if not text_idea and not url_idea:
         st.error("Please provide either a research idea text or a URL.")
     else:
         payload = {"text_idea": text_idea, "url_idea": url_idea}
+        st.session_state.llm_provider_used = "" # Reset before new call
         try:
-            # Reset to defaults before new call, or keep current user settings?
-            # For now, let's update session state with AI values if successful.
-            
             with st.spinner("Processing your idea with AI... this may take a moment."):
-                response = requests.post(BACKEND_URL, json=payload, timeout=60) # Increased timeout
+                response = requests.post(BACKEND_URL, json=payload, timeout=90) # Slightly increased timeout for LLM calls
             
             if response.status_code == 200:
                 data = response.json()
+                st.session_state.llm_provider_used = data.get("llm_provider_used", "Unknown") # Store provider
+
                 if data.get("error"):
-                    st.error(f"Error from backend: {data['error']}")
-                    st.session_state.processed_idea_text = data.get("processed_idea", st.session_state.processed_idea_text) # Keep old if new is empty
-                    st.session_state.estimation_justification = "" # Clear justification on error
+                    st.error(f"Error from backend (Provider: {st.session_state.llm_provider_used}): {data['error']}")
+                    st.session_state.processed_idea_text = data.get("processed_idea", st.session_state.processed_idea_text) 
+                    st.session_state.estimation_justification = "" 
                 elif data.get("initial_N") is not None and data.get("initial_cohens_d") is not None:
                     st.session_state.initial_N = data["initial_N"]
                     st.session_state.initial_cohens_d = data["initial_cohens_d"]
-                    # Update current sliders to AI estimates
                     st.session_state.current_N = data["initial_N"]
                     st.session_state.current_d = data["initial_cohens_d"]
-
                     st.session_state.estimation_justification = data.get("estimation_justification", "No justification provided by AI.")
                     st.session_state.processed_idea_text = data.get("processed_idea", "Idea processed successfully.")
-                    st.success("AI estimation received!")
+                    st.success(f"AI estimation received! (Provider: {st.session_state.llm_provider_used})")
                 else:
-                    st.error("AI estimation received, but data is incomplete. Using previous or default values.")
+                    st.error(f"AI estimation received (Provider: {st.session_state.llm_provider_used}), but data is incomplete. Using previous or default values.")
                     st.session_state.processed_idea_text = data.get("processed_idea", st.session_state.processed_idea_text)
                     st.session_state.estimation_justification = ""
-
-
             else:
                 st.error(f"Failed to get estimation from backend. Status code: {response.status_code}")
                 try:
                     error_detail = response.json().get("detail", response.text)
                     st.error(f"Details: {error_detail}")
-                except: # Fallback if response is not JSON
+                except: 
                     st.error(f"Details: {response.text}")
                 st.session_state.processed_idea_text = "Failed to process idea."
                 st.session_state.estimation_justification = ""
@@ -180,17 +164,19 @@ if st.button("Get AI Estimate for N, Cohen's d, and Justification", key="get_est
             st.error("The request to the backend API timed out. The AI might be taking too long or the server is busy.")
         except Exception as e:
             st.error(f"An unexpected error occurred: {e}")
-            st.session_state.estimation_justification = "" # Clear on other errors too
+            st.session_state.estimation_justification = ""
 
-# This ensures that even if the button wasn't pressed, if there's an idea, it's shown
 if st.session_state.processed_idea_text:
     with st.expander("View Processed Idea Sent to AI", expanded=False):
         st.caption("This is the text that was (or would be) sent to the AI model for estimation:")
-        # Display only a portion if too long
         display_text = st.session_state.processed_idea_text
         if len(display_text) > 1500:
             display_text = display_text[:1500] + "..."
         st.markdown(f"```\n{display_text}\n```")
+
+# Display LLM provider if available, outside the button click logic for persistence
+if st.session_state.llm_provider_used and st.session_state.estimation_justification: # Only show if justification is also present
+    st.caption(f"Estimation based on input from: **{st.session_state.llm_provider_used}**")
 
 if st.session_state.estimation_justification:
      with st.expander("AI's Justification for N and Cohen's d Estimates", expanded=True):
@@ -208,33 +194,29 @@ col1, col2 = st.columns(2)
 with col1:
     N_total_input = st.number_input(
         "Total Number of Participants (N)", 
-        min_value=4, # Min N for df > 0 and n_per_group > 1 (N_total/2 > 1 => N_total > 2; df = N_total - 2 > 0 => N_total > 2. So 4 is safe min for n_per_group=2)
+        min_value=4, 
         value=st.session_state.current_N, 
         step=2, 
-        key="N_total_slider_v2",
+        key="N_total_slider_v3", # Incremented key
         help="Total participants, assumed to be split equally into two groups."
     )
     st.session_state.current_N = N_total_input
-
 
 with col2:
     cohens_d_input = st.number_input(
         "Expected Cohen's d (Effect Size)", 
         min_value=0.0, 
         value=st.session_state.current_d, 
-        step=0.01, # Finer step for Cohen's d
+        step=0.01, 
         format="%.2f",
-        key="cohens_d_slider_v2",
+        key="cohens_d_slider_v3", # Incremented key
         help="Standardized mean difference. Common values: 0.2 (small), 0.5 (medium), 0.8 (large)."
     )
     st.session_state.current_d = cohens_d_input
 
-
-# Recalculate p-value based on current slider/input values
 p_val, msg = calculate_p_value_from_N_d(st.session_state.current_N, st.session_state.current_d)
 st.session_state.current_p_value = p_val
 st.session_state.p_value_message = msg
-
 
 st.header("3. Calculated P-Value")
 if st.session_state.p_value_message:

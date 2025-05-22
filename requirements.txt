@@ -8,6 +8,11 @@ uvicorn[standard] # For running the FastAPI server
 python-dotenv     # For loading .env files (API key)
 httpx             # For making async HTTP requests to Gemini API
 
+# LLM Providers
+google-generativeai # For Gemini
+openai              # For OpenAI and Azure OpenAI
+anthropic           # For Anthropic (Claude)
+
 #For URL processing (Backend)
 requests
 beautifulsoup4
