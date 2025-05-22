@@ -1,19 +1,32 @@
-# api.py (New Refactored Structure)
+# api.py (New Refactored Structure with Debug Prints)
 import os
 import json
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import requests
-from bs4 import BeautifulSoup
+import requests # Ensure this is imported if used by fetch_url_content
+from bs4 import BeautifulSoup # Ensure this is imported if used by fetch_url_content
 from dotenv import load_dotenv
+import re # Added for the OpenAI fallback logic
 
 # Import LLM SDKs
 import google.generativeai as genai
 from openai import OpenAI, AzureOpenAI
 from anthropic import Anthropic
 
-load_dotenv()
+# --- CRITICAL: load_dotenv() must be called BEFORE accessing os.getenv for .env variables ---
+load_dotenv(override=True)
+print(f"--- DOTENV LOADED ---") # Confirmation that load_dotenv() was called
+
 app = FastAPI()
+
+# --- LLM Interaction Logic ---
+# Let's see what os.getenv is actually returning
+raw_active_llm_provider_from_env = os.getenv("ACTIVE_LLM_PROVIDER")
+print(f"--- API STARTUP: Raw ACTIVE_LLM_PROVIDER from .env is: '{raw_active_llm_provider_from_env}' ---")
+
+ACTIVE_LLM_PROVIDER = os.getenv("ACTIVE_LLM_PROVIDER", "GEMINI").upper()
+print(f"--- API STARTUP: Effective ACTIVE_LLM_PROVIDER after default and .upper() is: '{ACTIVE_LLM_PROVIDER}' ---")
+
 
 # --- Pydantic Models (IdeaInput, EstimationOutput) remain the same ---
 class IdeaInput(BaseModel):
@@ -31,7 +44,6 @@ class EstimationOutput(BaseModel):
 # --- URL Fetching (fetch_url_content) remains the same ---
 def fetch_url_content(url: str) -> str:
     try:
-        # ... (implementation from previous version) ...
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -42,11 +54,7 @@ def fetch_url_content(url: str) -> str:
         return f"Error fetching/parsing URL: {str(e)}"
 
 
-# --- LLM Interaction Logic ---
-ACTIVE_LLM_PROVIDER = os.getenv("ACTIVE_LLM_PROVIDER", "GEMINI").upper()
-
 # --- System Prompt for JSON Output ---
-# This prompt needs to be robust for all models to encourage JSON output.
 SYSTEM_PROMPT_FOR_JSON = """You are a biostatistical assistant. A researcher is planning a clinical trial.
 Assume this will be a two-arm study (e.g., treatment vs. control) with equal participants per arm (N_total / 2 per arm), and the primary outcome is continuous. The goal is to detect a difference between the groups.
 Based on the research idea provided by the user, provide plausible estimates for:
@@ -68,17 +76,17 @@ Provide only the JSON object. Do not include any other text, greetings, or expla
 # --- Provider-Specific Functions ---
 
 async def get_llm_estimate_gemini(text_input: str) -> dict:
+    print("--- Attempting to use GEMINI provider ---")
     api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY not found in environment variables.")
+    if not api_key or api_key == "your_gemini_api_key_here": # Added check for placeholder
+        raise ValueError("GEMINI_API_KEY not found or is a placeholder in environment variables.")
     genai.configure(api_key=api_key)
     
-    model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash-latest") # Or your preferred model
+    model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash-latest") 
     model = genai.GenerativeModel(
         model_name,
         generation_config=genai.types.GenerationConfig(
             response_mime_type="application/json",
-            # Define the schema for the expected JSON output
             response_schema={
                 "type": "OBJECT",
                 "properties": {
@@ -89,30 +97,28 @@ async def get_llm_estimate_gemini(text_input: str) -> dict:
                 "required": ["N_total", "cohens_d", "justification"]
             }
         ),
-        system_instruction=SYSTEM_PROMPT_FOR_JSON # Gemini SDK uses system_instruction
+        system_instruction=SYSTEM_PROMPT_FOR_JSON 
     )
-    # Note: For Gemini, the SYSTEM_PROMPT_FOR_JSON itself might not be needed directly in the user prompt
-    # if the response_schema and system_instruction handle it well.
-    # However, the user prompt still needs to contain the research idea.
     prompt_parts = [f"Research Idea: '{text_input[:3000]}'"]
-    
-    response = await model.generate_content_async(prompt_parts) # Use async version
-    return json.loads(response.text) # response.text should be the JSON string
+    response = await model.generate_content_async(prompt_parts) 
+    return json.loads(response.text) 
 
 async def get_llm_estimate_openai(text_input: str, is_azure: bool = False) -> dict:
     if is_azure:
+        print("--- Attempting to use AZURE_OPENAI provider ---")
         api_key = os.getenv("AZURE_OPENAI_API_KEY")
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
-        api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
-        if not all([api_key, endpoint, deployment_name]):
-            raise ValueError("Azure OpenAI environment variables (API_KEY, ENDPOINT, DEPLOYMENT_NAME) not fully set.")
+        api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01") # Defaulting to a known stable version
+        if not all([api_key, endpoint, deployment_name]) or api_key == "REDACTED": # Added check for placeholder
+            raise ValueError("Azure OpenAI environment variables (API_KEY, ENDPOINT, DEPLOYMENT_NAME) not fully set or API_KEY is placeholder.")
         client = AzureOpenAI(api_key=api_key, azure_endpoint=endpoint, api_version=api_version)
         model_to_call = deployment_name
     else:
+        print("--- Attempting to use OPENAI (direct) provider ---")
         api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables.")
+        if not api_key or api_key == "your_openai_api_key_here": # Added check for placeholder
+            raise ValueError("OPENAI_API_KEY not found or is a placeholder in environment variables.")
         client = OpenAI(api_key=api_key)
         model_to_call = os.getenv("OPENAI_MODEL_NAME", "gpt-3.5-turbo")
 
@@ -121,26 +127,21 @@ async def get_llm_estimate_openai(text_input: str, is_azure: bool = False) -> di
         {"role": "user", "content": f"Research Idea: '{text_input[:3000]}'"}
     ]
     
-    # For newer OpenAI models/API versions, you can request JSON output directly
-    # Check documentation for your specific model and API version.
     try:
+        print(f"--- Calling OpenAI/Azure model: {model_to_call} ---")
         completion = client.chat.completions.create(
             model=model_to_call,
             messages=messages,
-            response_format={"type": "json_object"}, # Enforces JSON output if supported
+            response_format={"type": "json_object"}, 
             temperature=0.2,
-            max_tokens=400 # Adjust as needed
+            max_tokens=400 
         )
         response_content = completion.choices[0].message.content
         return json.loads(response_content)
-    except Exception as e: # Catch specific OpenAI errors if needed
-        # If response_format={"type": "json_object"} fails or is not supported,
-        # you might need to remove it and parse JSON from a string more carefully,
-        # or ensure the prompt is extremely clear.
-        print(f"OpenAI API error: {e}")
-        # Fallback if JSON mode is not supported or fails
+    except Exception as e: 
+        print(f"OpenAI API error with JSON mode (model: {model_to_call}): {e}")
+        print("--- Attempting OpenAI/Azure call without explicit JSON mode (fallback) ---")
         try:
-            print("Attempting OpenAI call without explicit JSON mode...")
             completion = client.chat.completions.create(
                 model=model_to_call,
                 messages=messages,
@@ -148,46 +149,43 @@ async def get_llm_estimate_openai(text_input: str, is_azure: bool = False) -> di
                 max_tokens=400
             )
             response_content = completion.choices[0].message.content
-            # Try to extract JSON from potentially messy string output
-            # This is less reliable than json_object mode
-            match = re.search(r"\{.*\}", response_content, re.DOTALL)
+            match = re.search(r"\{.*\}", response_content, re.DOTALL) # Using re import
             if match:
                 return json.loads(match.group(0))
             else:
+                print(f"--- Fallback failed: No JSON object found in OpenAI response: {response_content[:500]}... ---")
                 raise ValueError(f"No JSON object found in OpenAI response: {response_content}")
         except Exception as fallback_e:
-            print(f"OpenAI API fallback error: {fallback_e}")
+            print(f"OpenAI API fallback error (model: {model_to_call}): {fallback_e}")
             raise fallback_e
 
 
 async def get_llm_estimate_anthropic(text_input: str) -> dict:
+    print("--- Attempting to use ANTHROPIC provider ---")
     api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not found in environment variables.")
+    if not api_key or api_key == "your_anthropic_api_key_here": # Added check for placeholder
+        raise ValueError("ANTHROPIC_API_KEY not found or is a placeholder in environment variables.")
     
     client = Anthropic(api_key=api_key)
     model_name = os.getenv("ANTHROPIC_MODEL_NAME", "claude-3-haiku-20240307")
-    # Anthropic's system prompt is a specific parameter
-    # The user message forms the main part of the prompt.
-    
-    # Claude 3 models are good at following structured output instructions like JSON.
-    # Pre-fill the assistant's turn to guide it towards JSON.
     messages = [
         {"role": "user", "content": f"Research Idea: '{text_input[:3000]}'"}
     ]
-
-    response = client.messages.create(
+    print(f"--- Calling Anthropic model: {model_name} ---")
+    response_obj = client.messages.create( # Corrected variable name
         model=model_name,
-        system=SYSTEM_PROMPT_FOR_JSON, # System prompt for Claude
-        max_tokens=1024, # Claude needs enough tokens for JSON + explanation
+        system=SYSTEM_PROMPT_FOR_JSON, 
+        max_tokens=1024, 
         messages=messages,
         temperature=0.2
-    ).content[0].text # Get the text content from the first TextBlock
-
-    # Anthropic might not have a strict "JSON mode" like OpenAI's latest,
-    # so robust prompting and parsing are key.
-    # The SYSTEM_PROMPT_FOR_JSON asks it to *only* provide the JSON.
-    return json.loads(response)
+    )
+    # Ensure content is a list and not empty, and first item is a TextBlock
+    if response_obj.content and isinstance(response_obj.content, list) and hasattr(response_obj.content[0], 'text'):
+        response_text = response_obj.content[0].text
+        return json.loads(response_text)
+    else:
+        print(f"--- Anthropic unexpected response structure: {response_obj.content} ---")
+        raise ValueError("Anthropic response content not in expected format.")
 
 
 # --- Main Endpoint ---
@@ -204,22 +202,27 @@ async def process_idea(item: IdeaInput):
     if not combined_idea.strip():
         return EstimationOutput(error="Could not extract any content to process.")
 
+    # This uses the ACTIVE_LLM_PROVIDER defined at the module level
+    provider_used_for_this_request = ACTIVE_LLM_PROVIDER 
+    print(f"--- Processing request with provider: {provider_used_for_this_request} ---")
+
     try:
         llm_response_data = {}
-        provider_used = ACTIVE_LLM_PROVIDER
-
-        if ACTIVE_LLM_PROVIDER == "GEMINI":
+        
+        if provider_used_for_this_request == "GEMINI":
             llm_response_data = await get_llm_estimate_gemini(combined_idea)
-        elif ACTIVE_LLM_PROVIDER == "OPENAI":
+        elif provider_used_for_this_request == "OPENAI":
             llm_response_data = await get_llm_estimate_openai(combined_idea, is_azure=False)
-        elif ACTIVE_LLM_PROVIDER == "AZURE_OPENAI":
+        elif provider_used_for_this_request == "AZURE_OPENAI":
             llm_response_data = await get_llm_estimate_openai(combined_idea, is_azure=True)
-        elif ACTIVE_LLM_PROVIDER == "ANTHROPIC":
+        elif provider_used_for_this_request == "ANTHROPIC":
             llm_response_data = await get_llm_estimate_anthropic(combined_idea)
         else:
-            return EstimationOutput(error=f"Unsupported LLM provider: {ACTIVE_LLM_PROVIDER}", llm_provider_used=ACTIVE_LLM_PROVIDER)
+            # This case should ideally not be hit if ACTIVE_LLM_PROVIDER is validated at startup,
+            # but good as a safeguard.
+            print(f"--- ERROR: Unsupported LLM provider configured: {provider_used_for_this_request} ---")
+            return EstimationOutput(error=f"Unsupported LLM provider: {provider_used_for_this_request}", llm_provider_used=provider_used_for_this_request)
 
-        # Validate and return
         initial_N = llm_response_data.get("N_total")
         initial_cohens_d = llm_response_data.get("cohens_d")
         justification = llm_response_data.get("justification")
@@ -232,20 +235,27 @@ async def process_idea(item: IdeaInput):
                 initial_cohens_d=float(initial_cohens_d),
                 estimation_justification=justification,
                 processed_idea=combined_idea,
-                llm_provider_used=provider_used
+                llm_provider_used=provider_used_for_this_request
             )
         else:
-            return EstimationOutput(error="LLM returned data in unexpected format or missing fields.", processed_idea=combined_idea, llm_provider_used=provider_used)
+            print(f"--- ERROR: LLM ({provider_used_for_this_request}) returned data in unexpected format: {llm_response_data} ---")
+            return EstimationOutput(error="LLM returned data in unexpected format or missing fields.", processed_idea=combined_idea, llm_provider_used=provider_used_for_this_request)
 
-    except ValueError as ve: # Catch config errors
-        return EstimationOutput(error=str(ve), processed_idea=combined_idea, llm_provider_used=ACTIVE_LLM_PROVIDER)
+    except ValueError as ve: 
+        print(f"--- ValueError during LLM call ({provider_used_for_this_request}): {ve} ---")
+        return EstimationOutput(error=str(ve), processed_idea=combined_idea, llm_provider_used=provider_used_for_this_request)
     except json.JSONDecodeError as je:
-        return EstimationOutput(error=f"Failed to parse JSON response from LLM: {str(je)}", processed_idea=combined_idea, llm_provider_used=ACTIVE_LLM_PROVIDER)
+        print(f"--- JSONDecodeError from LLM ({provider_used_for_this_request}): {je} ---")
+        return EstimationOutput(error=f"Failed to parse JSON response from LLM: {str(je)}", processed_idea=combined_idea, llm_provider_used=provider_used_for_this_request)
     except Exception as e:
-        # Log the full error for debugging
-        print(f"An unexpected error occurred with {ACTIVE_LLM_PROVIDER}: {e}")
+        print(f"--- An unexpected error occurred with {provider_used_for_this_request}: {e} ---")
         import traceback
         traceback.print_exc()
-        return EstimationOutput(error=f"An unexpected error occurred with {ACTIVE_LLM_PROVIDER}: {str(e)}", processed_idea=combined_idea, llm_provider_used=ACTIVE_LLM_PROVIDER)
+        return EstimationOutput(error=f"An unexpected error occurred with {provider_used_for_this_request}: {str(e)}", processed_idea=combined_idea, llm_provider_used=provider_used_for_this_request)
 
-# ... (if __name__ == "__main__": uvicorn.run(...) )
+if __name__ == "__main__":
+    # This block is for direct execution (python api.py), not when run by uvicorn
+    # Uvicorn handles the app loading.
+    print("--- Starting API directly (not via uvicorn, for testing only if needed) ---")
+    # import uvicorn
+    # uvicorn.run(app, host="0.0.0.0", port=8000)
