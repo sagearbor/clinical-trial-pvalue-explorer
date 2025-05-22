@@ -50,6 +50,35 @@ def calculate_p_value_from_N_d(N_total, cohens_d):
     return p_value, None
 
 
+def calculate_power_from_N_d(N_total, cohens_d, alpha=0.05):
+    """Approximate power for a two-sample t-test with equal group sizes."""
+    if not isinstance(N_total, (int, float)) or N_total <= 2:
+        return None, "Total N must be a number greater than 2."
+    if not isinstance(cohens_d, (int, float)):
+        return None, "Cohen's d must be a number."
+
+    N_total_int = int(N_total)
+    if N_total_int <= 2:
+        return None, "Total N must be greater than 2."
+    n_per_group = N_total_int / 2.0
+    if n_per_group <= 1:
+        return None, "Sample size per group (N_total / 2) must be greater than 1."
+
+    df = N_total_int - 2
+    if df <= 0:
+        return None, "Degrees of freedom (N_total - 2) must be positive."
+
+    try:
+        ncp = cohens_d * np.sqrt(n_per_group / 2.0)
+        t_crit = stats.t.ppf(1 - alpha / 2, df)
+        beta = stats.nct.cdf(t_crit, df, ncp) - stats.nct.cdf(-t_crit, df, ncp)
+        power = 1 - beta
+    except Exception as e:
+        return None, f"Error during power calculation: {str(e)}"
+
+    return power, None
+
+
 st.set_page_config(layout="wide")
 st.title("Clinical Trial P-Value Explorer (AI-Assisted)")
 
@@ -193,10 +222,10 @@ col1, col2 = st.columns(2)
 
 with col1:
     N_total_input = st.number_input(
-        "Total Number of Participants (N)", 
-        min_value=4, 
-        value=st.session_state.current_N, 
-        step=2, 
+        "Total Number of Participants (N)",
+        min_value=3,
+        value=st.session_state.current_N,
+        step=1,
         key="N_total_slider_v3", # Incremented key
         help="Total participants, assumed to be split equally into two groups."
     )
@@ -230,6 +259,18 @@ if st.session_state.current_p_value is not None:
         st.info("This p-value is not typically considered statistically significant (p >= 0.05).")
 else:
     st.info("P-value will be calculated once valid parameters are set.")
+
+# --- New Power / Probability Visualization ---
+power_val, power_msg = calculate_power_from_N_d(st.session_state.current_N, st.session_state.current_d)
+
+st.header("4. Probability of Detecting the Effect")
+if power_msg:
+    st.warning(power_msg)
+elif power_val is not None:
+    st.metric(label="Estimated Power", value=f"{power_val*100:.1f}%")
+    st.progress(min(max(power_val, 0.0), 1.0))
+else:
+    st.info("Power will be calculated once valid parameters are set.")
 
 st.markdown("---")
 st.caption("Remember: This tool is for educational and exploratory purposes. Always consult with a qualified statistician for actual clinical trial design and sample size calculations.")

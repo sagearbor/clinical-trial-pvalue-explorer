@@ -60,9 +60,11 @@ You need to run two components separately: the FastAPI backend and the Streamlit
 4.  Adjust the "Total Number of Participants (N)" and "Expected Cohen's d" using the input fields or sliders.
 5.  The "Calculated P-Value" will update automatically based on your adjustments.
     * The tool will also indicate if the p-value is typically considered statistically significant (< 0.05).
+6.  A new section displays the **estimated power** (probability of detecting the effect) along with a progress bar.
 
 ## Important Considerations for the P-Value Calculation
 
 * The p-value is calculated assuming a **two-sample, two-sided t-test** with **equal sample sizes** in each of the two groups (N_total / 2 per group).
 * It answers the question: "If a study with `N_total` participants observed an effect size of `Cohen's d`, what would the p-value be?"
-* This is **not** a power calculation (which determines the probability of detecting an effect of a certain size).
+* The displayed power is an approximation based on the current N and Cohen's d values. It should not replace a formal power analysis when planning a real study.
+* The total sample size `N_total` does **not** need to be even but must be greater than 2 for valid calculations.
