@@ -205,7 +205,7 @@ with col1:
 with col2:
     cohens_d_input = st.number_input(
         "Expected Cohen's d (Effect Size)", 
-        min_value=0.0, 
+        min_value=-5.0,  # Allow negative effect sizes
         value=st.session_state.current_d, 
         step=0.01, 
         format="%.2f",
