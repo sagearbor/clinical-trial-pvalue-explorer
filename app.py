@@ -71,6 +71,8 @@ if 'p_value_message' not in st.session_state:
     st.session_state.p_value_message = ""
 if 'llm_provider_used' not in st.session_state: # New session state variable
     st.session_state.llm_provider_used = ""
+if 'references' not in st.session_state:
+    st.session_state.references = []
 
 if 'current_N' not in st.session_state:
     st.session_state.current_N = st.session_state.initial_N
@@ -131,12 +133,13 @@ if st.button("Get AI Estimate for N, Cohen's d, and Justification", key="get_est
             
             if response.status_code == 200:
                 data = response.json()
-                st.session_state.llm_provider_used = data.get("llm_provider_used", "Unknown") # Store provider
+                st.session_state.llm_provider_used = data.get("llm_provider_used", "Unknown")  # Store provider
 
                 if data.get("error"):
                     st.error(f"Error from backend (Provider: {st.session_state.llm_provider_used}): {data['error']}")
-                    st.session_state.processed_idea_text = data.get("processed_idea", st.session_state.processed_idea_text) 
-                    st.session_state.estimation_justification = "" 
+                    st.session_state.processed_idea_text = data.get("processed_idea", st.session_state.processed_idea_text)
+                    st.session_state.estimation_justification = ""
+                    st.session_state.references = []
                 elif data.get("initial_N") is not None and data.get("initial_cohens_d") is not None:
                     st.session_state.initial_N = data["initial_N"]
                     st.session_state.initial_cohens_d = data["initial_cohens_d"]
@@ -144,11 +147,13 @@ if st.button("Get AI Estimate for N, Cohen's d, and Justification", key="get_est
                     st.session_state.current_d = data["initial_cohens_d"]
                     st.session_state.estimation_justification = data.get("estimation_justification", "No justification provided by AI.")
                     st.session_state.processed_idea_text = data.get("processed_idea", "Idea processed successfully.")
+                    st.session_state.references = data.get("references", [])
                     st.success(f"AI estimation received! (Provider: {st.session_state.llm_provider_used})")
                 else:
                     st.error(f"AI estimation received (Provider: {st.session_state.llm_provider_used}), but data is incomplete. Using previous or default values.")
                     st.session_state.processed_idea_text = data.get("processed_idea", st.session_state.processed_idea_text)
                     st.session_state.estimation_justification = ""
+                    st.session_state.references = []
             else:
                 st.error(f"Failed to get estimation from backend. Status code: {response.status_code}")
                 try:
@@ -158,6 +163,7 @@ if st.button("Get AI Estimate for N, Cohen's d, and Justification", key="get_est
                     st.error(f"Details: {response.text}")
                 st.session_state.processed_idea_text = "Failed to process idea."
                 st.session_state.estimation_justification = ""
+                st.session_state.references = []
         except requests.exceptions.ConnectionError:
             st.error("Could not connect to the backend API. Is it running at " + BACKEND_URL + "?")
         except requests.exceptions.Timeout:
@@ -165,6 +171,7 @@ if st.button("Get AI Estimate for N, Cohen's d, and Justification", key="get_est
         except Exception as e:
             st.error(f"An unexpected error occurred: {e}")
             st.session_state.estimation_justification = ""
+            st.session_state.references = []
 
 if st.session_state.processed_idea_text:
     with st.expander("View Processed Idea Sent to AI", expanded=False):
@@ -181,6 +188,11 @@ if st.session_state.llm_provider_used and st.session_state.estimation_justificat
 if st.session_state.estimation_justification:
      with st.expander("AI's Justification for N and Cohen's d Estimates", expanded=True):
         st.info(st.session_state.estimation_justification)
+
+if st.session_state.references:
+    with st.expander("References", expanded=False):
+        for ref in st.session_state.references:
+            st.markdown(f"- {ref}")
 
 
 st.header("2. Adjust Parameters and See P-Value")
