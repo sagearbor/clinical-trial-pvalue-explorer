@@ -6,7 +6,11 @@ This application allows users to input a clinical trial research idea (or a URL 
 
 ## Project Structure
 
-.├── api.py              # FastAPI backend application├── app.py              # Streamlit frontend application├── requirements.txt    # Python dependencies├── .env                # For API Key (you need to create this)└── README.md           # This file
+- api.py - FastAPI backend application
+- app.py - Streamlit frontend application
+- requirements.txt - Python dependencies
+- .env - For API Key (you need to create this)
+- README.md - This file
 ## Setup Instructions
 
 1.  **Clone the Repository (or create files):**
