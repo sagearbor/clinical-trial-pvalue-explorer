@@ -61,6 +61,7 @@ You need to run two components separately: the FastAPI backend and the Streamlit
 4.  Adjust the "Total Number of Participants (N)" and "Expected Cohen's d" using the input fields or sliders.
 5.  The "Calculated P-Value" will update automatically based on your adjustments.
     * The tool will also indicate if the p-value is typically considered statistically significant (< 0.05).
+6.  A new section displays the **estimated power** (probability of detecting the effect) along with a progress bar.
 
 ## Important Considerations for the P-Value Calculation
 
