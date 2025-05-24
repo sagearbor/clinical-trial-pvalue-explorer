@@ -37,8 +37,9 @@ class EstimationOutput(BaseModel):
     initial_N: int | None = None
     initial_cohens_d: float | None = None
     estimation_justification: str | None = None
+    references: list[str] | None = None
     processed_idea: str | None = None
-    llm_provider_used: str | None = None # Add this to know which LLM responded
+    llm_provider_used: str | None = None  # Add this to know which LLM responded
     error: str | None = None
 
 # --- URL Fetching (fetch_url_content) remains the same ---
@@ -61,14 +62,16 @@ Based on the research idea provided by the user, provide plausible estimates for
 1.  Total number of participants (N_total).
 2.  A typical Cohen's d effect size.
 3.  A brief justification for your N_total and Cohen's d estimates.
+4.  A short list of references (URLs or article titles) that informed your estimates.
 
 Consider that researchers often aim for 80% power at a significance level (alpha) of 0.05 (two-sided).
-Your response MUST be a valid JSON object with three keys: "N_total" (an integer), "cohens_d" (a float), and "justification" (a string).
+Your response MUST be a valid JSON object with four keys: "N_total" (an integer), "cohens_d" (a float), "justification" (a string), and "references" (an array of strings).
 Example:
 {
   "N_total": 128,
   "cohens_d": 0.5,
-  "justification": "Medium effect size is common for this type of behavioral intervention, and N is estimated for 80% power."
+  "justification": "Medium effect size is common for this type of behavioral intervention, and N is estimated for 80% power.",
+  "references": ["https://example.com/trial-guidelines"]
 }
 Provide only the JSON object. Do not include any other text, greetings, or explanations outside of the JSON structure.
 """
@@ -226,6 +229,7 @@ async def process_idea(item: IdeaInput):
         initial_N = llm_response_data.get("N_total")
         initial_cohens_d = llm_response_data.get("cohens_d")
         justification = llm_response_data.get("justification")
+        references = llm_response_data.get("references")
 
         if isinstance(initial_N, int) and \
            isinstance(initial_cohens_d, (float, int)) and \
@@ -234,6 +238,7 @@ async def process_idea(item: IdeaInput):
                 initial_N=initial_N,
                 initial_cohens_d=float(initial_cohens_d),
                 estimation_justification=justification,
+                references=references if isinstance(references, list) else None,
                 processed_idea=combined_idea,
                 llm_provider_used=provider_used_for_this_request
             )
