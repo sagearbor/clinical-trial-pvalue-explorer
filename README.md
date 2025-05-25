@@ -19,7 +19,9 @@ This application allows users to input a clinical trial research idea (or a URL 
 2.  **Create a Python Virtual Environment (Recommended):**
     ```bash
     python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    source venv/bin/activate  # Linux/macOS
+    # On Windows (Command Prompt): venv\Scripts\activate
+    # On Windows using Git Bash: source venv/Scripts/activate
     ```
 
 3.  **Install Dependencies:**
