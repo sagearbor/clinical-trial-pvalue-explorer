@@ -1,6 +1,6 @@
 import math
 import pytest
-from app import calculate_p_value_from_N_d
+from statistical_utils import calculate_p_value_from_N_d
 
 
 def test_p_value_below_0_05():

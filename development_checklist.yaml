@@ -1,0 +1,257 @@
+metadata:
+  project: "Universal Study P-Value Explorer"
+  created: "2025-08-03T06:59:00Z"
+  last_updated: "2025-08-03T14:42:00Z"
+  version: "2.0"
+  current_phase: "Phase 3"
+
+# Phase completion tracking
+phases:
+  phase_1:
+    name: "Core Infrastructure"
+    timeline: "Weeks 1-2"
+    status: "completed"
+    percent_complete: 100
+    dependencies: []
+    description: "Foundation work: Enhanced LLM integration and factory pattern"
+    goals:
+      - "Enhanced LLM integration returns structured responses"
+      - "Factory pattern enables easy addition of new statistical tests"
+      - "Backwards compatibility maintained"
+      - "All existing functionality preserved"
+    
+  phase_2:
+    name: "Essential Statistical Tests"
+    timeline: "Weeks 3-4"
+    status: "completed"
+    percent_complete: 100
+    dependencies: ["phase_1"]
+    description: "Adding core statistical tests for different study types"
+    goals:
+      - "Chi-square test for categorical data analysis"
+      - "One-way ANOVA for multiple group comparisons"
+      - "Correlation tests for relationship studies"
+      - "API endpoints updated for new tests"
+      - "Frontend shows study type suggestions"
+    
+  phase_3:
+    name: "User Experience Enhancement"
+    timeline: "Weeks 5-6"
+    status: "pending"
+    percent_complete: 0
+    dependencies: ["phase_2"]
+    description: "Dual-mode interface and enhanced result presentation"
+    goals:
+      - "AI Suggestion Mode vs Manual Expert Mode"
+      - "Dynamic parameter forms based on detected test"
+      - "Effect size interpretation with context"
+      - "Statistical vs practical significance indicators"
+      - "Power visualization with sample size recommendations"
+    
+  phase_4:
+    name: "Statistical Depth"
+    timeline: "Weeks 7-10"
+    status: "pending"
+    percent_complete: 0
+    dependencies: ["phase_3"]
+    description: "Advanced statistical tests and comprehensive power analysis"
+    goals:
+      - "Non-parametric alternatives (Mann-Whitney, Kruskal-Wallis)"
+      - "Advanced t-tests (paired, Welch's)"
+      - "Regression analysis (simple and multiple)"
+      - "Comprehensive power analysis suite"
+      - "Multiple comparison handling"
+    
+  phase_5:
+    name: "Advanced Features"
+    timeline: "Weeks 11-16"
+    status: "pending"
+    percent_complete: 0
+    dependencies: ["phase_4"]
+    description: "Study design framework and domain specialization"
+    goals:
+      - "Study design templates (RCT, cohort, case-control)"
+      - "Domain specialization (clinical, psychology, education)"
+      - "Data integration and file upload support"
+      - "Direct data analysis capabilities"
+
+# Completed Phase 1 tasks
+completed_tasks:
+  "1.1":
+    name: "Enhanced LLM Integration"
+    description: "Update AI prompts to return structured study analysis and detect any study type"
+    details:
+      - "Updated system prompts to return structured JSON responses"
+      - "Added study type detection logic"
+      - "Enhanced parameter extraction"
+      - "Added confidence levels and alternative test suggestions"
+    priority: "critical"
+    status: "completed"
+    percent_complete: 100
+    assigned_agent: "developer"
+    dependencies: []
+    artifacts: ["api.py", "test_enhanced_api.py", "PHASE_1_1_IMPLEMENTATION.md"]
+    completion_date: "2025-08-03"
+    
+  "1.2":
+    name: "Statistical Test Factory Pattern"
+    description: "Create statistical_tests.py module with base classes and factory pattern"
+    details:
+      - "Created StatisticalTest abstract base class"
+      - "Implemented factory pattern with test registration"
+      - "Migrated TwoSampleTTest to new pattern"
+      - "Added comprehensive backwards compatibility"
+    priority: "critical"
+    status: "completed"
+    percent_complete: 100
+    assigned_agent: "developer"
+    dependencies: ["1.1"]
+    artifacts: ["statistical_tests.py", "api.py", "test_factory_pattern.py", "ADDING_NEW_STATISTICAL_TESTS.md"]
+    completion_date: "2025-08-03"
+
+# Current Phase 2 tasks
+current_tasks:
+  "2.1":
+    name: "Chi-square Test Implementation"
+    description: "Add chi-square test for categorical data analysis"
+    details:
+      - "Create ChiSquareTest class following factory pattern"
+      - "Support both independence and goodness-of-fit tests"
+      - "Calculate Cramér's V effect size for power analysis"
+      - "Add comprehensive parameter validation"
+      - "Register with factory using multiple aliases"
+    priority: "high"
+    status: "completed"
+    percent_complete: 100
+    assigned_agent: "developer"
+    dependencies: ["1.2"]
+    artifacts: ["statistical_tests.py", "tests/test_chi_square.py"]
+    completion_date: "2025-08-03"
+    
+  "2.2":
+    name: "One-way ANOVA Implementation"
+    description: "Add one-way ANOVA for multiple group comparisons"
+    details:
+      - "Create OneWayANOVA class using scipy.stats.f_oneway"
+      - "Support both groups list and individual group parameters"
+      - "Calculate eta-squared effect size for power analysis"
+      - "Add warnings for unbalanced designs and small samples"
+      - "Register with factory aliases: anova, f_test, multiple_groups"
+    priority: "high"
+    status: "completed"
+    percent_complete: 100
+    assigned_agent: "developer"
+    dependencies: ["1.2"]
+    artifacts: ["statistical_tests.py", "tests/test_one_way_anova.py", "examples/demos/demo_one_way_anova.py"]
+    completion_date: "2025-08-03"
+    
+  "2.3":
+    name: "Correlation Tests Implementation"
+    description: "Add Pearson and Spearman correlation tests"
+    details:
+      - "Create CorrelationTest class for relationship analysis"
+      - "Support both Pearson and Spearman correlation methods"
+      - "Calculate appropriate effect sizes (r-squared)"
+      - "Handle missing data and assumption violations"
+      - "Register with factory using correlation aliases"
+    priority: "high"
+    status: "completed"
+    percent_complete: 100
+    assigned_agent: "developer"
+    dependencies: ["1.2"]
+    artifacts: ["statistical_tests.py", "tests/test_correlation.py", "examples/demos/demo_correlation_analysis.py"]
+    completion_date: "2025-08-03"
+    
+  "2.4":
+    name: "API Endpoint Evolution"
+    description: "Extend API endpoints to handle new study types"
+    details:
+      - "Update /process_idea endpoint for new tests"
+      - "Add /available_tests endpoint for UI dropdown"
+      - "Update response models for test-specific parameters"
+      - "Enhance study type mapping logic"
+    priority: "high"
+    status: "completed"
+    percent_complete: 100
+    assigned_agent: "developer"
+    dependencies: ["2.1", "2.2"]
+    artifacts: ["api.py", "test_enhanced_api_endpoints.py", "TASK_2_4_COMPLETION_SUMMARY.md"]
+    completion_date: "2025-08-03"
+    
+  "2.5":
+    name: "Frontend Adaptation"
+    description: "Update Streamlit UI to show study type suggestions"
+    details:
+      - "Add study type display showing AI's suggestion"
+      - "Create dynamic parameter forms based on detected test"
+      - "Implement test type switching capability"
+      - "Show alternative test suggestions"
+    priority: "medium"
+    status: "completed"
+    percent_complete: 100
+    assigned_agent: "developer"
+    dependencies: ["2.4"]
+    artifacts: ["app.py", "test_frontend_integration.py", "TASK_2_5_FRONTEND_ADAPTATION.md"]
+    completion_date: "2025-08-03"
+
+# Next priority task for orchestrator  
+next_priority_task:
+  task_id: "3.1"
+  name: "Dual-Mode Interface"
+  agent_needed: "developer"
+  critical_path: true
+  estimated_duration: 300
+  blocks: ["3.2"]
+  description: "Implement AI Suggestion Mode vs Manual Expert Mode interface"
+
+# Success criteria by phase
+success_criteria:
+  phase_1:
+    status: "completed"
+    criteria:
+      - "✓ Enhanced LLM integration returns structured responses"
+      - "✓ Factory pattern enables easy addition of new statistical tests"
+      - "✓ Backwards compatibility maintained"
+      - "✓ All existing functionality preserved"
+      
+  phase_2:
+    status: "completed"
+    criteria:
+      - "✓ Chi-square test for categorical data analysis"
+      - "✓ One-way ANOVA for multiple group comparisons"
+      - "✓ Correlation tests for relationship studies"
+      - "✓ API endpoints updated for new tests"
+      - "✓ Frontend shows study type suggestions"
+      
+  phase_3:
+    status: "pending"
+    criteria:
+      - "◯ AI Suggestion Mode vs Manual Expert Mode"
+      - "◯ Dynamic parameter forms based on detected test"
+      - "◯ Effect size interpretation with context"
+      - "◯ Statistical vs practical significance indicators"
+      - "◯ Power visualization with sample size recommendations"
+
+# Critical path items with status
+critical_path:
+  completed:
+    - "1.1 - Enhanced LLM Integration"
+    - "1.2 - Statistical Test Factory Pattern"
+    - "2.1 - Chi-square Test Implementation"
+    - "2.2 - One-way ANOVA Implementation"
+  current:
+    - "2.3 - Correlation Tests Implementation"
+  upcoming:
+    - "2.4 - API Endpoint Evolution"
+    - "2.5 - Frontend Adaptation"
+    - "3.1 - Dual-Mode Interface"
+
+# Recent accomplishments
+recent_achievements:
+  - "✅ PHASE 2 COMPLETE - All essential statistical tests implemented"
+  - "✅ Correlation analysis (Pearson/Spearman) with 54 test cases"
+  - "✅ Enhanced API endpoints with universal study routing"
+  - "✅ Dynamic frontend with AI study type suggestions"
+  - "✅ Complete factory pattern integration (23 test aliases)"
+  - "✅ 100% backwards compatibility maintained"
+  - "✅ Production-ready with comprehensive test coverage"
