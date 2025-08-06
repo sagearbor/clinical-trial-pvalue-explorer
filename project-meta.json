@@ -1,0 +1,1 @@
+{"name":"Clinical Trial P-Value Explorer","description":"This app estimates participants and effect size for trials. Users can interactively calculate p-values.","technologies":["FastAPI","Streamlit","Python","Git","Gemini API"],"category":"web-app","status":"active","language":"Python"}
