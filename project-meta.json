@@ -1,0 +1,1 @@
+{"name":"Clinical Trial P-Value Explorer","description":"AI-assisted tool for estimating clinical trial parameters.","technologies":["Python","FastAPI","Streamlit","Git","API"],"category":"other","status":"active","language":"Python"}
