@@ -1,14 +1,14 @@
 {
   "name": "Clinical Trial P-Value Explorer",
-  "description": "This tool estimates participant numbers and effect sizes for trials. It features an interactive p-value calculator.",
+  "description": "This tool estimates participants for clinical trials and computes p-values.",
   "technologies": [
     "Python",
     "FastAPI",
-    "Streamlit",
-    "AI"
+    "Streamlit"
   ],
   "category": [
     "web-app",
+    "api",
     "data-analysis"
   ],
   "status": "active",
