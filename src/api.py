@@ -1,6 +1,10 @@
 # api.py (New Refactored Structure with Debug Prints)
 import os
+import sys
 import json
+
+# Add src directory to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import requests # Ensure this is imported if used by fetch_url_content
@@ -15,6 +19,16 @@ from anthropic import Anthropic
 
 # Import statistical test factory
 from statistical_tests import get_factory, StatisticalTestFactory
+
+# Import research intelligence (optional)
+try:
+    from research_intelligence import ResearchIntelligenceEngine
+    RESEARCH_INTELLIGENCE_AVAILABLE = True
+    print("--- Research intelligence import successful ---")
+except ImportError as e:
+    print(f"--- Research intelligence import failed: {e} ---")
+    ResearchIntelligenceEngine = None
+    RESEARCH_INTELLIGENCE_AVAILABLE = False
 
 # --- CRITICAL: load_dotenv() must be called BEFORE accessing os.getenv for .env variables ---
 load_dotenv(override=True)
@@ -34,6 +48,7 @@ class IdeaInput(BaseModel):
 class EnhancedIdeaInput(BaseModel):
     study_description: str
     llm_provider: str | None = None  # Optional LLM provider override
+    max_papers: int | None = 5  # Number of research papers to fetch
 
 class EstimationOutput(BaseModel):
     initial_N: int | None = None
@@ -85,6 +100,24 @@ class StatisticalAnalysisOutput(BaseModel):
     llm_provider_used: str | None = None
     error: str | None = None
 
+# Multi-scenario response model (Phase 3+)
+class MultiScenarioAnalysisOutput(BaseModel):
+    suggested_study_type: str | None = None
+    evidence_quality: str | None = None
+    effect_size_uncertainty: str | None = None
+    recommended_scenario: str | None = None
+    rationale: str | None = None
+    scenarios: dict | None = None  # Contains all 5 scenarios
+    data_type: str | None = None
+    study_design: str | None = None
+    alternative_tests: list[str] | None = None
+    references: list[str] | None = None
+    references_source: str | None = None  # 'pubmed_arxiv' or 'ai_generated'
+    references_warning: str | None = None  # Warning message if AI-generated
+    processed_idea: str | None = None
+    llm_provider_used: str | None = None
+    error: str | None = None
+
 # --- URL Fetching (fetch_url_content) remains the same ---
 def fetch_url_content(url: str) -> str:
     try:
@@ -124,6 +157,10 @@ ENHANCED_SYSTEM_PROMPT = """You are an expert biostatistician and research metho
 
 Based on the research idea, you must provide a detailed study analysis with the following information:
 
+**IMPORTANT**: If the study involves time-to-event analysis (survival analysis, time to death, disease progression, relapse, etc.), you MUST return:
+- suggested_study_type: "survival_analysis"
+- Include in rationale: "This study requires survival analysis (Cox regression/Log-rank test) which is not yet supported."
+
 1. **Study Type Detection**: Identify the most appropriate statistical test/analysis
 2. **Study Design**: Determine if this is experimental vs observational
 3. **Data Characteristics**: Identify the type of data (continuous, categorical, count, etc.)
@@ -132,15 +169,32 @@ Based on the research idea, you must provide a detailed study analysis with the 
 
 Your response MUST be a valid JSON object with the following schema:
 {
-  "suggested_study_type": "string (e.g., 'two_sample_t_test', 'one_way_anova', 'chi_square_test', 'survival_analysis', 'regression_analysis')",
+  "suggested_study_type": "string (e.g., 'two_sample_t_test', 'one_way_anova', 'chi_square', 'correlation', 'ancova', 'fishers_exact', 'logistic_regression', 'repeated_measures_anova')",
   "rationale": "string (detailed explanation of why this test is recommended)",
   "parameters": {
     "total_n": "integer (recommended total sample size)",
-    "cohens_d": "float (for continuous outcomes) or null",
-    "effect_size_type": "string (e.g., 'cohens_d', 'odds_ratio', 'hazard_ratio')",
-    "effect_size_value": "float (the actual effect size estimate)",
     "alpha": "float (significance level, typically 0.05)",
-    "power": "float (desired statistical power, typically 0.8)"
+    "power": "float (desired statistical power, typically 0.8)",
+    "effect_size_type": "string (e.g., 'cohens_d', 'cramers_v', 'eta_squared', 'correlation')",
+    "effect_size_value": "float (the actual effect size estimate)",
+    
+    // For t-tests:
+    "cohens_d": "float (for t-tests) or null",
+    
+    // For chi-square tests:
+    "contingency_table": "2D array (for chi-square) or null (e.g., [[25,15],[20,30]])",
+    "cramers_v": "float (for chi-square effect size) or null",
+    
+    // For ANOVA tests:
+    "groups": "array of arrays (for ANOVA) or null (e.g., [[10,12,11],[15,14,16],[20,18,19]])",
+    "eta_squared": "float (for ANOVA effect size) or null",
+    "num_groups": "integer (number of groups for ANOVA) or null",
+    
+    // For correlation tests:
+    "x_values": "array (for correlation) or null",
+    "y_values": "array (for correlation) or null", 
+    "correlation_coefficient": "float (expected correlation) or null",
+    "correlation_type": "string ('pearson' or 'spearman') or null"
   },
   "alternative_tests": ["array of strings listing alternative statistical approaches"],
   "data_type": "string (e.g., 'continuous', 'categorical', 'count', 'time_to_event', 'binary')",
@@ -150,28 +204,192 @@ Your response MUST be a valid JSON object with the following schema:
   "references": ["array of strings with relevant references"]
 }
 
-Example for a two-group comparison:
-{
-  "suggested_study_type": "two_sample_t_test",
-  "rationale": "The research involves comparing a continuous outcome between two distinct groups (treatment vs control). A two-sample t-test is appropriate assuming normal distribution and equal variances.",
-  "parameters": {
-    "total_n": 128,
-    "cohens_d": 0.5,
-    "effect_size_type": "cohens_d",
-    "effect_size_value": 0.5,
-    "alpha": 0.05,
-    "power": 0.8
-  },
-  "alternative_tests": ["welch_t_test", "mann_whitney_u", "permutation_test"],
-  "data_type": "continuous",
-  "study_design": "randomized_controlled_trial",
-  "confidence_level": 0.85,
-  "justification": "Medium effect size (d=0.5) is realistic for behavioral interventions. Sample size calculated for 80% power at alpha=0.05.",
-  "references": ["Cohen J. Statistical Power Analysis for the Behavioral Sciences", "https://clinicaltrials.gov/guidance"]
-}
-
 Provide only the JSON object. No additional text, explanations, or formatting outside the JSON structure.
 """
+
+# --- Enhanced Multi-Scenario System Prompt ---
+MULTI_SCENARIO_SYSTEM_PROMPT = """You are an expert biostatistician and research methodologist. Analyze the provided research idea and provide 5 different statistical design scenarios based on effect size uncertainty and risk tolerance.
+
+**CRITICAL TASK**: Generate exactly 5 scenarios with different uncertainty/risk profiles:
+
+1. **"Exploratory"** - For novel interventions with unknown effects (target p < 0.001, 95% power)
+2. **"Cautious"** - For interventions with limited evidence (target p < 0.01, 90% power)  
+3. **"Standard"** - For interventions with some established evidence (target p < 0.05, 85% power)
+4. **"Optimistic"** - For well-established intervention types (target p < 0.05, 80% power)
+5. **"Minimum Viable"** - For resource-constrained studies (target p < 0.05, 70% power)
+
+**IMPORTANT**: If the study involves time-to-event analysis (survival analysis, time to death, disease progression, relapse, etc.), you MUST return:
+- suggested_study_type: "survival_analysis" 
+- Include in rationale: "This study requires survival analysis (Cox regression/Log-rank test) which is not yet supported. Consider time-to-event endpoints."
+
+**Your Analysis Process:**
+1. **Study Type Detection**: Choose the most appropriate test from these options:
+   - 'two_sample_t_test': Comparing means between two groups (e.g., treatment vs control)
+   - 'one_way_anova': Comparing means across 3+ groups (e.g., multiple treatments)
+   - 'chi_square': Analyzing categorical relationships (e.g., response rates, large samples)
+   - 'correlation': Examining linear relationships between continuous variables
+   - 'ancova': Comparing groups while adjusting for baseline covariates (very common in clinical trials)
+   - 'fishers_exact': Analyzing 2x2 categorical data with small sample sizes (n<30 or sparse cells)
+   - 'logistic_regression': Modeling binary outcomes (response/non-response, cure/no-cure, odds ratios)
+   - 'repeated_measures_anova': Analyzing longitudinal data with multiple time points per subject
+2. **Evidence Assessment**: Evaluate how well-established this type of intervention is
+3. **Uncertainty Quantification**: Assess effect size uncertainty
+4. **Multi-Scenario Generation**: Create 5 tailored scenarios
+5. **Recommendation**: Choose the most appropriate scenario based on evidence quality
+
+Your response MUST be a valid JSON object with the following schema:
+{
+  "suggested_study_type": "string (MUST be one of: 'two_sample_t_test', 'one_way_anova', 'chi_square', 'correlation', 'ancova', 'fishers_exact', 'logistic_regression', 'repeated_measures_anova')",
+  "evidence_quality": "string ('high', 'medium', 'low') - how well-established is this intervention type?",
+  "effect_size_uncertainty": "string ('low', 'medium', 'high') - how uncertain is the expected effect size?",
+  "recommended_scenario": "string ('exploratory', 'cautious', 'standard', 'optimistic', 'minimum_viable')",
+  "rationale": "string (why this test and scenario are recommended)",
+  
+  "scenarios": {
+    "exploratory": {
+      "name": "Exploratory",
+      "description": "Novel intervention, maximum rigor to detect small effects",
+      "target_p_value": 0.001,
+      "target_power": 0.95,
+      "parameters": {
+        "total_n": "integer", "alpha": 0.001, "power": 0.95,
+        "effect_size_type": "string", "effect_size_value": "float (conservative estimate)",
+        "cohens_d": "float or null", "contingency_table": "array or null",
+        "groups": "array or null", "x_values": "array or null", "y_values": "array or null",
+        "correlation_coefficient": "float or null", "correlation_type": "string or null"
+      }
+    },
+    "cautious": {
+      "name": "Cautious", 
+      "description": "Limited prior evidence, robust design needed",
+      "target_p_value": 0.01,
+      "target_power": 0.90,
+      "parameters": { /* same structure as above */ }
+    },
+    "standard": {
+      "name": "Standard",
+      "description": "Some established evidence, balanced approach", 
+      "target_p_value": 0.05,
+      "target_power": 0.85,
+      "parameters": { /* same structure */ }
+    },
+    "optimistic": {
+      "name": "Optimistic",
+      "description": "Well-established intervention type",
+      "target_p_value": 0.05, 
+      "target_power": 0.80,
+      "parameters": { /* same structure */ }
+    },
+    "minimum_viable": {
+      "name": "Minimum Viable",
+      "description": "Resource-constrained but still valid",
+      "target_p_value": 0.05,
+      "target_power": 0.70, 
+      "parameters": { /* same structure */ }
+    }
+  },
+  
+  "data_type": "string",
+  "study_design": "string", 
+  "alternative_tests": ["array"],
+  "references": ["array"]
+}
+
+**CRITICAL EXAMPLE** - Multi-scenario response for a depression treatment study:
+
+{
+  "suggested_study_type": "two_sample_t_test",
+  "evidence_quality": "medium",
+  "effect_size_uncertainty": "medium", 
+  "recommended_scenario": "cautious",
+  "rationale": "Depression treatment has some established evidence but effect sizes vary widely across studies",
+  
+  "scenarios": {
+    "exploratory": {
+      "name": "Exploratory",
+      "description": "Novel intervention, maximum rigor", 
+      "target_p_value": 0.001,
+      "target_power": 0.95,
+      "parameters": {
+        "total_n": 400, "alpha": 0.001, "power": 0.95, "effect_size_type": "cohens_d",
+        "effect_size_value": 0.3, "cohens_d": 0.3, "contingency_table": null,
+        "groups": null, "x_values": null, "y_values": null, "correlation_coefficient": null
+      }
+    },
+    "cautious": {
+      "name": "Cautious", 
+      "description": "Limited evidence, robust design",
+      "target_p_value": 0.01,
+      "target_power": 0.90,
+      "parameters": {
+        "total_n": 250, "alpha": 0.01, "power": 0.90, "effect_size_type": "cohens_d", 
+        "effect_size_value": 0.4, "cohens_d": 0.4, "contingency_table": null,
+        "groups": null, "x_values": null, "y_values": null, "correlation_coefficient": null
+      }
+    },
+    "standard": {
+      "name": "Standard",
+      "description": "Balanced approach",
+      "target_p_value": 0.05,
+      "target_power": 0.85, 
+      "parameters": {
+        "total_n": 180, "alpha": 0.05, "power": 0.85, "effect_size_type": "cohens_d",
+        "effect_size_value": 0.5, "cohens_d": 0.5, "contingency_table": null,
+        "groups": null, "x_values": null, "y_values": null, "correlation_coefficient": null
+      }
+    },
+    "optimistic": {
+      "name": "Optimistic", 
+      "description": "Well-established type",
+      "target_p_value": 0.05,
+      "target_power": 0.80,
+      "parameters": {
+        "total_n": 128, "alpha": 0.05, "power": 0.80, "effect_size_type": "cohens_d",
+        "effect_size_value": 0.6, "cohens_d": 0.6, "contingency_table": null, 
+        "groups": null, "x_values": null, "y_values": null, "correlation_coefficient": null
+      }
+    },
+    "minimum_viable": {
+      "name": "Minimum Viable",
+      "description": "Resource-constrained",
+      "target_p_value": 0.05,
+      "target_power": 0.70,
+      "parameters": {
+        "total_n": 90, "alpha": 0.05, "power": 0.70, "effect_size_type": "cohens_d",
+        "effect_size_value": 0.7, "cohens_d": 0.7, "contingency_table": null,
+        "groups": null, "x_values": null, "y_values": null, "correlation_coefficient": null
+      }
+    }
+  },
+  "data_type": "continuous",
+  "study_design": "randomized_controlled_trial",
+  "alternative_tests": ["welch_t_test", "mann_whitney_u"],
+  "references": ["Depression treatment meta-analysis studies"]
+}
+
+"""
+
+# --- Multi-Scenario LLM Functions ---
+
+async def get_llm_multi_scenario_gemini(text_input: str) -> dict:
+    """Get multi-scenario analysis using Gemini with enhanced prompting."""
+    print("--- Attempting multi-scenario analysis with GEMINI provider ---")
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key or api_key == "your_gemini_api_key_here":
+        raise ValueError("GEMINI_API_KEY not found or is a placeholder in environment variables.")
+    genai.configure(api_key=api_key)
+    
+    model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash-latest")
+    model = genai.GenerativeModel(
+        model_name,
+        generation_config=genai.types.GenerationConfig(
+            response_mime_type="application/json"
+        ),
+        system_instruction=MULTI_SCENARIO_SYSTEM_PROMPT
+    )
+    prompt_parts = [f"Research Idea: '{text_input[:3000]}'"]
+    response = await model.generate_content_async(prompt_parts)
+    return json.loads(response.text)
 
 # --- Provider-Specific Functions ---
 
@@ -1087,6 +1305,166 @@ async def get_available_tests():
             "error": str(e),
             "api_version": "2.4"
         }
+
+
+# --- Multi-Scenario Analysis Endpoint (Phase 3+) ---
+@app.post("/analyze_scenarios", response_model=MultiScenarioAnalysisOutput)
+async def analyze_scenarios(item: EnhancedIdeaInput):
+    """
+    Enhanced multi-scenario endpoint that generates 5 different statistical design approaches
+    based on effect size uncertainty and risk tolerance.
+    
+    Returns 5 scenarios: Exploratory, Cautious, Standard, Optimistic, Minimum Viable
+    with AI recommendation for which scenario is most appropriate.
+    """
+    if not item.study_description or not item.study_description.strip():
+        raise HTTPException(status_code=400, detail="study_description must be provided and non-empty.")
+    
+    # Use provided LLM provider or default
+    provider_used = item.llm_provider.upper() if item.llm_provider else ACTIVE_LLM_PROVIDER
+    print(f"--- Processing multi-scenario analysis with provider: {provider_used} ---")
+    print(f"--- Study description: {item.study_description[:100]}... ---")
+    
+    try:
+        llm_response_data = {}
+        
+        # Get multi-scenario LLM analysis (currently only Gemini implemented)
+        if provider_used == "GEMINI":
+            llm_response_data = await get_llm_multi_scenario_gemini(item.study_description)
+        else:
+            return MultiScenarioAnalysisOutput(
+                error=f"Multi-scenario analysis not yet implemented for provider: {provider_used}. Currently supports: GEMINI", 
+                llm_provider_used=provider_used,
+                processed_idea=item.study_description
+            )
+
+        # Enhance with real research citations if available
+        research_failed = False
+        print(f"--- Research intelligence available: {RESEARCH_INTELLIGENCE_AVAILABLE} ---")
+        if RESEARCH_INTELLIGENCE_AVAILABLE and llm_response_data:
+            try:
+                print(f"--- Fetching real citations for: {item.study_description[:50]}... ---")
+                research_engine = ResearchIntelligenceEngine()
+                research_summary = await research_engine.analyze_research_topic(
+                    item.study_description,
+                    max_papers=item.max_papers or 5
+                )
+                print(f"--- Research summary completed. Papers found: {len(research_summary.papers_analyzed) if research_summary else 0} ---")
+                
+                # Replace generic references with real citations
+                if research_summary and research_summary.papers_analyzed:
+                    print(f"--- Processing {len(research_summary.papers_analyzed)} papers for citations ---")
+                    real_references = []
+                    # Use all papers found, up to max_papers requested
+                    max_refs = min(len(research_summary.papers_analyzed), item.max_papers or 5)
+                    for i, paper in enumerate(research_summary.papers_analyzed[:max_refs]):
+                        try:
+                            if paper.title:
+                                # Handle ClinicalTrials.gov data differently
+                                if 'ClinicalTrials.gov' in (paper.journal or ''):
+                                    citation = f"**{paper.title}**"
+                                    if paper.sample_size:
+                                        citation += f" (N={paper.sample_size})"
+                                    citation += f" - {paper.journal}"
+                                    
+                                    # Add brief summary for clinical trials
+                                    if paper.abstract and len(paper.abstract) > 50:
+                                        summary = paper.abstract[:200] + "..." if len(paper.abstract) > 200 else paper.abstract
+                                        citation += f"\n  *{summary}*"
+                                    
+                                    if paper.url:
+                                        citation += f" [View Trial]({paper.url})"
+                                else:
+                                    # Handle regular papers (PubMed, arXiv)  
+                                    citation = f"**{paper.title}**"
+                                    if paper.authors:
+                                        citation += f" - {', '.join(paper.authors[:2])}" + (" et al." if len(paper.authors) > 2 else "")
+                                        
+                                    if paper.journal:
+                                        citation += f" ({paper.journal})"
+                                    
+                                    # Add brief abstract for research papers
+                                    if paper.abstract and len(paper.abstract) > 50:
+                                        summary = paper.abstract[:250] + "..." if len(paper.abstract) > 250 else paper.abstract
+                                        citation += f"\n  *{summary}*"
+                                    
+                                    # Add clickable URL if available
+                                    if paper.url:
+                                        citation += f" [View Paper]({paper.url})"
+                                    elif paper.pmid:
+                                        citation += f" [PubMed](https://pubmed.ncbi.nlm.nih.gov/{paper.pmid}/)"
+                                    elif paper.doi:
+                                        citation += f" [DOI](https://doi.org/{paper.doi})"
+                                        
+                                real_references.append(citation)
+                                print(f"--- Added citation {i+1}: {paper.title[:50]}... ---")
+                        except Exception as cite_error:
+                            print(f"--- Error processing citation {i+1}: {cite_error} ---")
+                            continue
+                    
+                    if real_references:
+                        llm_response_data['references'] = real_references
+                        llm_response_data['references_source'] = 'pubmed_arxiv_clinicaltrials'
+                        print(f"--- Enhanced with {len(real_references)} real citations ---")
+                    else:
+                        research_failed = True
+                else:
+                    research_failed = True
+                    
+            except Exception as research_error:
+                print(f"--- Research intelligence failed: {research_error} ---")
+                import traceback
+                traceback.print_exc()
+                research_failed = True
+        else:
+            research_failed = True
+            
+        # Remove AI-generated references if research failed - only show real research
+        if research_failed and llm_response_data:
+            llm_response_data['references'] = []
+            llm_response_data['references_source'] = 'search_failed'
+            llm_response_data['references_warning'] = '⚠️ No research papers found from PubMed/arXiv search. Try different keywords.'
+
+        return MultiScenarioAnalysisOutput(
+            suggested_study_type=llm_response_data.get('suggested_study_type'),
+            evidence_quality=llm_response_data.get('evidence_quality'),
+            effect_size_uncertainty=llm_response_data.get('effect_size_uncertainty'),
+            recommended_scenario=llm_response_data.get('recommended_scenario'),
+            rationale=llm_response_data.get('rationale'),
+            scenarios=llm_response_data.get('scenarios'),
+            data_type=llm_response_data.get('data_type'),
+            study_design=llm_response_data.get('study_design'),
+            alternative_tests=llm_response_data.get('alternative_tests'),
+            references=llm_response_data.get('references'),
+            references_source=llm_response_data.get('references_source'),
+            references_warning=llm_response_data.get('references_warning'),
+            processed_idea=item.study_description,
+            llm_provider_used=provider_used
+        )
+
+    except ValueError as ve:
+        print(f"--- ValueError during multi-scenario processing ({provider_used}): {ve} ---")
+        return MultiScenarioAnalysisOutput(
+            error=str(ve), 
+            processed_idea=item.study_description, 
+            llm_provider_used=provider_used
+        )
+    except json.JSONDecodeError as je:
+        print(f"--- JSONDecodeError from multi-scenario processing ({provider_used}): {je} ---")
+        return MultiScenarioAnalysisOutput(
+            error=f"Failed to parse JSON response from LLM: {str(je)}", 
+            processed_idea=item.study_description, 
+            llm_provider_used=provider_used
+        )
+    except Exception as e:
+        print(f"--- An unexpected error occurred with multi-scenario analysis {provider_used}: {e} ---")
+        import traceback
+        traceback.print_exc()
+        return MultiScenarioAnalysisOutput(
+            error=f"An unexpected error occurred with {provider_used}: {str(e)}", 
+            processed_idea=item.study_description, 
+            llm_provider_used=provider_used
+        )
 
 
 # --- Health Check Endpoint ---

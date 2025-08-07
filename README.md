@@ -6,11 +6,22 @@ This application allows users to input a clinical trial research idea (or a URL 
 
 ## Project Structure
 
-- api.py - FastAPI backend application
-- app.py - Streamlit frontend application
-- requirements.txt - Python dependencies
-- .env - For API Key (you need to create this)
-- README.md - This file
+```
+clinical-trial-pvalue-explorer/
+├── app.py                     # Main Streamlit application
+├── requirements.txt           # Python dependencies  
+├── src/                       # Core Python modules
+│   ├── api.py                # FastAPI backend with LLM integration
+│   ├── statistical_tests.py  # Statistical test implementations
+│   ├── statistical_utils.py  # Utility functions
+│   └── research_intelligence.py # Web search pipeline (NEW)
+├── tests/                     # Test suites
+├── docs/                      # Documentation
+├── examples/                  # Usage examples and demos
+└── scripts/                   # Utility scripts
+```
+
+See [CLAUDE.md](CLAUDE.md) for detailed development structure and context.
 ## Setup Instructions
 
 1.  **Clone the Repository (or create files):**
@@ -45,7 +56,7 @@ You need to run two components separately: the FastAPI backend and the Streamlit
 1.  **Run the FastAPI Backend:**
     Open a terminal, navigate to the project directory, and run:
     ```bash
-    uvicorn api:app --reload --port 8000
+    uvicorn src.api:app --reload --port 8000
     ```
     This will start the backend server, typically at `http://localhost:8000`. Keep this terminal window open.
 

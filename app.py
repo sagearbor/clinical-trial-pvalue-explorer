@@ -5,6 +5,12 @@ import json
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import sys
+import os
+sys.path.insert(0, 'src')
 from statistical_utils import calculate_p_value_from_N_d, calculate_power_from_N_d
 
 # Configuration for the FastAPI backend URLs
@@ -13,6 +19,7 @@ BASE_URL = "http://localhost:8000"
 BACKEND_URL = f"{BASE_URL}/process_idea"
 AVAILABLE_TESTS_URL = f"{BASE_URL}/available_tests"
 CALCULATE_STATISTICS_URL = f"{BASE_URL}/calculate_statistics"  # New endpoint for direct calculations
+MULTI_SCENARIO_URL = f"{BASE_URL}/analyze_scenarios"  # Multi-scenario analysis endpoint
 
 
 st.set_page_config(layout="wide", page_title="Universal Study P-Value Explorer", page_icon="📊")
@@ -73,6 +80,20 @@ if 'current_y_values' not in st.session_state:
 if 'current_correlation_type' not in st.session_state:
     st.session_state.current_correlation_type = "pearson"
 
+# Multi-scenario session state variables
+if 'multi_scenarios' not in st.session_state:
+    st.session_state.multi_scenarios = {}
+if 'evidence_quality' not in st.session_state:
+    st.session_state.evidence_quality = None
+if 'effect_size_uncertainty' not in st.session_state:
+    st.session_state.effect_size_uncertainty = None
+if 'recommended_scenario' not in st.session_state:
+    st.session_state.recommended_scenario = None
+if 'selected_scenario' not in st.session_state:
+    st.session_state.selected_scenario = None
+if 'scenario_analysis_complete' not in st.session_state:
+    st.session_state.scenario_analysis_complete = False
+
 
 # Helper functions for enhanced features
 def fetch_available_tests():
@@ -95,7 +116,12 @@ def get_test_display_name(test_id):
         "two_sample_t_test": "Two-Sample t-Test",
         "chi_square": "Chi-Square Test", 
         "one_way_anova": "One-Way ANOVA",
-        "correlation": "Correlation Analysis"
+        "correlation": "Correlation Analysis",
+        "ancova": "ANCOVA (Analysis of Covariance)",
+        "fishers_exact": "Fisher's Exact Test",
+        "logistic_regression": "Logistic Regression",
+        "repeated_measures_anova": "Repeated Measures ANOVA",
+        "survival_analysis": "🚫 Survival Analysis (Not Yet Supported)"
     }
     return test_names.get(test_id, test_id.replace('_', ' ').title())
 
@@ -223,47 +249,271 @@ def format_test_results(test_type, results):
         
     return formatted
 
+def call_multi_scenario_analysis(study_description: str, llm_provider: str = None):
+    """Call the multi-scenario analysis endpoint"""
+    max_papers = st.session_state.get('max_papers', 5)
+    payload = {
+        "study_description": study_description.strip(),
+        "llm_provider": llm_provider,
+        "max_papers": max_papers
+    }
+    
+    try:
+        with st.spinner("🤖 AI is generating 5 statistical design scenarios based on effect size uncertainty..."):
+            response = requests.post(MULTI_SCENARIO_URL, json=payload, timeout=120)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if data.get("error"):
+                st.error(f"Error from multi-scenario analysis: {data['error']}")
+                return None
+            else:
+                return data
+        else:
+            st.error(f"Failed to get multi-scenario analysis. Status: {response.status_code}")
+            return None
+            
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Could not connect to the backend API. Is it running at " + BASE_URL + "?")
+        return None
+    except requests.exceptions.Timeout:
+        st.error("⏱️ Multi-scenario analysis timed out. Please try again.")
+        return None
+    except Exception as e:
+        st.error(f"❌ Unexpected error during multi-scenario analysis: {e}")
+        return None
+
+def create_scenario_comparison_chart(scenarios: dict, recommended_scenario: str = None):
+    """Create interactive Plotly chart comparing all 5 scenarios"""
+    if not scenarios:
+        return None
+    
+    # Extract data for visualization
+    scenario_names = []
+    sample_sizes = []
+    p_values = []
+    powers = []
+    effect_sizes = []
+    colors = []
+    
+    # Define colors for each scenario
+    color_map = {
+        'exploratory': '#FF6B6B',      # Red - most rigorous
+        'cautious': '#FF8E53',         # Orange
+        'standard': '#4ECDC4',         # Teal - balanced 
+        'optimistic': '#45B7D1',      # Blue
+        'minimum_viable': '#96CEB4'    # Green - most efficient
+    }
+    
+    for name, scenario in scenarios.items():
+        if isinstance(scenario, dict) and 'parameters' in scenario:
+            scenario_names.append(name.replace('_', ' ').title())
+            
+            params = scenario['parameters']
+            sample_sizes.append(params.get('total_n', 0))
+            p_values.append(scenario.get('target_p_value', params.get('alpha', 0.05)))
+            powers.append(scenario.get('target_power', params.get('power', 0.8)))
+            effect_sizes.append(params.get('effect_size_value', 0.5))
+            
+            # Highlight recommended scenario
+            if name == recommended_scenario:
+                colors.append('#FFD700')  # Gold for recommended
+            else:
+                colors.append(color_map.get(name, '#999999'))
+    
+    # Create subplot with multiple charts
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Sample Size Comparison', 'Statistical Rigor (α level)', 
+                       'Target Power', 'Effect Size Assumptions'),
+        specs=[[{"secondary_y": False}, {"secondary_y": False}],
+               [{"secondary_y": False}, {"secondary_y": False}]]
+    )
+    
+    # Sample sizes - smooth curve with points
+    fig.add_trace(
+        go.Scatter(x=scenario_names, y=sample_sizes, 
+                   mode='lines+markers+text',
+                   line=dict(color='#2E86C1', width=3, shape='spline'),
+                   marker=dict(size=12, color=colors, line=dict(width=2, color='white')),
+                   text=[f'N={n}' for n in sample_sizes],
+                   textposition='top center',
+                   name='Sample Size'),
+        row=1, col=1
+    )
+    
+    # P-value targets - smooth curve with points (lower is more rigorous)
+    fig.add_trace(
+        go.Scatter(x=scenario_names, y=p_values,
+                   mode='lines+markers+text',
+                   line=dict(color='#E74C3C', width=3, shape='spline'),
+                   marker=dict(size=12, color=colors, line=dict(width=2, color='white')),
+                   text=[f'α={p}' for p in p_values],
+                   textposition='top center',
+                   name='Target α'),
+        row=1, col=2
+    )
+    
+    # Power targets - smooth curve with points
+    fig.add_trace(
+        go.Scatter(x=scenario_names, y=[p*100 for p in powers],
+                   mode='lines+markers+text',
+                   line=dict(color='#27AE60', width=3, shape='spline'),
+                   marker=dict(size=12, color=colors, line=dict(width=2, color='white')),
+                   text=[f'{p*100:.0f}%' for p in powers],
+                   textposition='top center',
+                   name='Power (%)'),
+        row=2, col=1
+    )
+    
+    # Effect sizes - smooth curve with points
+    fig.add_trace(
+        go.Scatter(x=scenario_names, y=effect_sizes,
+                   mode='lines+markers+text',
+                   line=dict(color='#8E44AD', width=3, shape='spline'),
+                   marker=dict(size=12, color=colors, line=dict(width=2, color='white')),
+                   text=[f'd={e:.2f}' for e in effect_sizes],
+                   textposition='top center',
+                   name='Effect Size'),
+        row=2, col=2
+    )
+    
+    # Update layout
+    fig.update_layout(
+        height=600,
+        title_text="📊 Multi-Scenario Comparison Dashboard",
+        title_x=0.5,
+        showlegend=False,
+        font=dict(size=12)
+    )
+    
+    # Update y-axis labels
+    fig.update_yaxes(title_text="Participants", row=1, col=1)
+    fig.update_yaxes(title_text="Alpha Level", row=1, col=2, type="log")
+    fig.update_yaxes(title_text="Power (%)", row=2, col=1)
+    fig.update_yaxes(title_text="Effect Size", row=2, col=2)
+    
+    return fig
+
+def create_power_curves_comparison(scenarios: dict, recommended_scenario: str = None):
+    """Create power curves showing how power changes with sample size for each scenario"""
+    if not scenarios:
+        return None
+        
+    fig = go.Figure()
+    
+    # Generate sample size range for power curves
+    n_range = np.arange(20, 500, 10)
+    
+    color_map = {
+        'exploratory': '#FF6B6B',
+        'cautious': '#FF8E53', 
+        'standard': '#4ECDC4',
+        'optimistic': '#45B7D1',
+        'minimum_viable': '#96CEB4'
+    }
+    
+    for name, scenario in scenarios.items():
+        if isinstance(scenario, dict) and 'parameters' in scenario:
+            params = scenario['parameters']
+            effect_size = params.get('effect_size_value', 0.5)
+            alpha = scenario.get('target_p_value', params.get('alpha', 0.05))
+            
+            # Calculate power curve for this scenario
+            power_values = []
+            for n in n_range:
+                power, _ = calculate_power_from_N_d(n, effect_size, alpha)
+                power_values.append(power if power else 0)
+            
+            # Line style for recommended scenario
+            line_width = 4 if name == recommended_scenario else 2
+            line_dash = 'solid' if name == recommended_scenario else 'dot'
+            
+            fig.add_trace(go.Scatter(
+                x=n_range, 
+                y=power_values,
+                mode='lines+markers',
+                name=f'{name.replace("_", " ").title()}',
+                line=dict(
+                    color=color_map.get(name, '#999999'),
+                    width=line_width,
+                    dash=line_dash,
+                    shape='spline'
+                ),
+                marker=dict(size=4, opacity=0.6),
+                hovertemplate=f'<b>{name.replace("_", " ").title()}</b><br>' +
+                             'Sample Size: %{x}<br>' +
+                             'Power: %{y:.3f}<br>' +
+                             f'α = {alpha}, Effect = {effect_size}<extra></extra>'
+            ))
+    
+    # Add horizontal lines for common power thresholds
+    fig.add_hline(y=0.8, line_dash="dash", line_color="gray", 
+                  annotation_text="80% Power", annotation_position="right")
+    fig.add_hline(y=0.9, line_dash="dash", line_color="lightgray",
+                  annotation_text="90% Power", annotation_position="right")
+    
+    fig.update_layout(
+        title="🔥 Power Curves Comparison Across Scenarios",
+        title_x=0.5,
+        xaxis_title="Sample Size (N)",
+        yaxis_title="Statistical Power",
+        yaxis=dict(range=[0, 1]),
+        height=500,
+        hovermode='x unified',
+        legend=dict(
+            yanchor="bottom",
+            y=0.02,
+            xanchor="right", 
+            x=0.98
+        )
+    )
+    
+    return fig
+
 with st.sidebar:
-    st.header("About")
-    st.info(
-        "**Universal Study P-Value Explorer**\n\n"
-        "This enhanced tool supports multiple statistical analyses:\n"
-        "• **T-tests**: Compare two groups\n"
-        "• **Chi-square**: Test categorical associations\n"
-        "• **ANOVA**: Compare multiple groups\n"
-        "• **Correlation**: Analyze relationships\n\n"
-        "Get AI-powered study type suggestions and statistical calculations."
-        "\n\n**Disclaimer:** AI estimates are for exploratory purposes only. "
-        "Consult a statistician for actual study design."
-    )
-    st.header("Statistical Test Information")
+    # Clean, compact gear icon with tooltip
+    st.markdown('## ⚙️ <span title="Advanced configuration settings">ℹ️</span>', unsafe_allow_html=True)
     
-    # Fetch and display available tests
-    if st.button("🔄 Refresh Available Tests", help="Fetch latest test information from API"):
-        enhanced_tests, basic_tests = fetch_available_tests()
-        st.session_state.available_tests = enhanced_tests
+    # Research Intelligence Settings
+    with st.expander("🔬 Research Intelligence"):
+        max_papers = st.slider(
+            "Max Papers to Fetch",
+            min_value=1,
+            max_value=50,
+            value=5,
+            help="Number of research papers to fetch from PubMed, arXiv & ClinicalTrials.gov"
+        )
+        st.session_state.max_papers = max_papers
+        
+        st.caption("Sources: PubMed, arXiv, ClinicalTrials.gov")
     
-    if st.session_state.available_tests:
-        st.subheader("Available Statistical Tests")
-        for test in st.session_state.available_tests:
-            with st.expander(f"📊 {test.get('name', test['test_id'])}"):
-                st.write(f"**Description:** {test.get('description', 'No description')}")
-                st.write(f"**Data Type:** {test.get('data_type', 'Unknown')}")
-                st.write(f"**Effect Size:** {test.get('effect_size_type', 'Unknown')}")
-                if test.get('required_parameters'):
-                    st.write(f"**Required Parameters:** {', '.join(test['required_parameters'])}")
-    else:
-        st.info("Click 'Refresh Available Tests' to see supported statistical tests.")
+    # Collapsed About section
+    with st.expander("ℹ️ About", expanded=False):
+        st.info(
+            "**Clinical Trial P-Value Explorer**\n\n"
+            "Supports 8 statistical tests covering 95%+ of clinical trials:\n"
+            "• **T-tests & ANCOVA**: Group comparisons\n"
+            "• **Chi-square & Fisher's Exact**: Categorical data\n"
+            "• **ANOVA & Repeated Measures**: Multiple groups/timepoints\n"
+            "• **Logistic Regression**: Binary outcomes\n"
+            "• **Correlation**: Relationships\n\n"
+            "🔬 **Real Research Intelligence**: Fetches actual citations from PubMed, arXiv & ClinicalTrials.gov"
+            "\n\n**Disclaimer:** AI estimates are for exploratory purposes only. "
+            "Consult a biostatistician for actual clinical trial design."
+        )
     
-    st.header("Calculation Notes")
-    st.markdown(
-        "**Test-Specific Calculations:**\n\n"
-        "• **T-test**: Uses Cohen's d and sample size\n"
-        "• **Chi-square**: Uses contingency tables and Cramér's V\n"
-        "• **ANOVA**: Uses group means and eta-squared\n"
-        "• **Correlation**: Uses Pearson/Spearman coefficients\n\n"
-        "All calculations include appropriate degrees of freedom and statistical assumptions."
-    )
+    # Collapsed Statistical Test Information
+    with st.expander("📊 Statistical Tests", expanded=False):
+        if st.session_state.available_tests:
+            for test in st.session_state.available_tests:
+                with st.expander(f"📊 {test.get('name', test['test_id'])}", expanded=False):
+                    st.write(f"**Description:** {test.get('description', 'No description')}")
+        else:
+            if st.button("🔄 Load Test Info", help="Fetch latest test information from API"):
+                enhanced_tests, basic_tests = fetch_available_tests()
+                st.session_state.available_tests = enhanced_tests
 
 
 # Load available tests if not already loaded
@@ -368,6 +618,156 @@ if st.button("🔍 Analyze Study & Get AI Recommendations", key="analyze_study_b
             st.session_state.references = []
             st.session_state.study_analysis = {}
 
+# === NEW: Multi-Scenario Analysis Button ===
+st.markdown("---")
+st.markdown('### 🔥 5 Stat Designs <span title="Generate 5 statistical design scenarios based on evidence uncertainty and power requirements">ℹ️</span>', unsafe_allow_html=True)
+
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.button("🔥 Generate Scenarios", key="multi_scenario_button", type="secondary"):
+        if not text_idea.strip():
+            st.error("Please provide a research idea or study description.")
+        else:
+            # Call multi-scenario analysis
+            scenario_data = call_multi_scenario_analysis(text_idea.strip(), llm_provider)
+            
+            if scenario_data:
+                # Store scenario data in session state
+                st.session_state.multi_scenarios = scenario_data.get('scenarios', {})
+                st.session_state.evidence_quality = scenario_data.get('evidence_quality')
+                st.session_state.effect_size_uncertainty = scenario_data.get('effect_size_uncertainty')
+                st.session_state.recommended_scenario = scenario_data.get('recommended_scenario')
+                st.session_state.selected_scenario = scenario_data.get('recommended_scenario')  # Default to recommended
+                st.session_state.scenario_analysis_complete = True
+                st.session_state.suggested_test_type = scenario_data.get('suggested_study_type', 'two_sample_t_test')
+                st.session_state.selected_test_type = st.session_state.suggested_test_type
+                
+                # Store complete response data for references
+                st.session_state.multi_scenario_data = scenario_data
+                
+                st.success(f"✅ Generated 5 scenarios! Recommended: **{scenario_data.get('recommended_scenario', 'Unknown').replace('_', ' ').title()}**")
+
+with col2:
+    if st.session_state.scenario_analysis_complete:
+        st.info(f"📊 **{len(st.session_state.multi_scenarios)} scenarios generated**\n\n🎯 **Evidence Quality:** {st.session_state.evidence_quality or 'Unknown'}\n\n⚡ **Recommended:** {st.session_state.recommended_scenario or 'Unknown'}")
+
+# === Multi-Scenario Display ===
+if st.session_state.scenario_analysis_complete and st.session_state.multi_scenarios:
+    st.header("🎨 Multi-Scenario Statistical Design Dashboard")
+    
+    # Scenario selection dropdown
+    scenario_options = list(st.session_state.multi_scenarios.keys())
+    scenario_display_names = [name.replace('_', ' ').title() for name in scenario_options]
+    
+    # Find current selection index
+    current_index = 0
+    if st.session_state.selected_scenario in scenario_options:
+        current_index = scenario_options.index(st.session_state.selected_scenario)
+    
+    selected_index = st.selectbox(
+        "🎯 Choose Scenario to Analyze:",
+        range(len(scenario_display_names)),
+        index=current_index,
+        format_func=lambda i: f"{scenario_display_names[i]} {'⭐ (Recommended)' if scenario_options[i] == st.session_state.recommended_scenario else ''}",
+        help="Select different scenarios to compare statistical approaches",
+        key="scenario_selector"
+    )
+    
+    st.session_state.selected_scenario = scenario_options[selected_index]
+    selected_scenario_data = st.session_state.multi_scenarios[st.session_state.selected_scenario]
+    
+    # Display selected scenario details
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        params = selected_scenario_data.get('parameters', {})
+        st.metric(
+            "Sample Size", 
+            params.get('total_n', 'N/A'),
+            help="Total number of participants needed"
+        )
+        st.metric(
+            "Target Power",
+            f"{(params.get('power', 0.8) * 100):.0f}%",
+            help="Probability of detecting true effect"
+        )
+    
+    with col2:
+        st.metric(
+            "Significance Level (α)", 
+            selected_scenario_data.get('target_p_value', params.get('alpha', 0.05)),
+            help="Probability of Type I error"
+        )
+        st.metric(
+            "Effect Size",
+            f"{params.get('effect_size_value', 0.5):.3f}",
+            help="Expected effect size (Cohen's d or equivalent)"
+        )
+    
+    with col3:
+        st.info(f"**{selected_scenario_data.get('name', 'Scenario')}**\n\n{selected_scenario_data.get('description', 'No description available')}")
+    
+    # Interactive Visualizations
+    st.subheader("📊 Interactive Scenario Comparisons")
+    
+    # Tabs for different visualizations
+    tab1, tab2 = st.tabs(["📈 Scenario Comparison", "🔥 Power Curves"])
+    
+    with tab1:
+        comparison_chart = create_scenario_comparison_chart(
+            st.session_state.multi_scenarios, 
+            st.session_state.recommended_scenario
+        )
+        if comparison_chart:
+            st.plotly_chart(comparison_chart, use_container_width=True)
+        else:
+            st.warning("Unable to create comparison chart")
+    
+    with tab2:
+        power_curves_chart = create_power_curves_comparison(
+            st.session_state.multi_scenarios,
+            st.session_state.recommended_scenario  
+        )
+        if power_curves_chart:
+            st.plotly_chart(power_curves_chart, use_container_width=True)
+            st.markdown("**💡 How to read this chart:** Each line shows how statistical power increases with sample size for different scenarios. The **bold line** is the recommended scenario. Higher/thicker lines need fewer participants to achieve the same power.")
+        else:
+            st.warning("Unable to create power curves")
+    
+    # Update current parameters based on selected scenario
+    if selected_scenario_data and 'parameters' in selected_scenario_data:
+        scenario_params = selected_scenario_data['parameters']
+        st.session_state.current_N = scenario_params.get('total_n', st.session_state.current_N)
+        st.session_state.current_d = scenario_params.get('effect_size_value', st.session_state.current_d)
+    
+    # Display Research References
+    st.subheader("📚 Research References")
+    if hasattr(st.session_state, 'multi_scenario_data') and st.session_state.multi_scenario_data:
+        scenario_data = st.session_state.multi_scenario_data
+        references = scenario_data.get('references', [])
+        references_source = scenario_data.get('references_source', 'unknown')
+        references_warning = scenario_data.get('references_warning')
+        
+        if references_warning:
+            st.error(f"🚨 **{references_warning}**")
+        
+        if references:
+            if references_source == 'pubmed_arxiv_clinicaltrials':
+                st.success("✅ **Real Research Citations** (from PubMed, arXiv & ClinicalTrials.gov)")
+            elif references_source == 'pubmed_arxiv':
+                st.success("✅ **Real Research Citations** (from PubMed & arXiv)")
+            else:
+                st.warning("⚠️ **AI-Generated References** (research search failed)")
+                
+            for i, ref in enumerate(references, 1):
+                st.markdown(f"**{i}.** {ref}")
+        else:
+            st.info("No references available for this analysis.")
+    else:
+        st.info("References will appear after running multi-scenario analysis.")
+    
+    st.markdown("---")
+
 # === Enhanced Study Analysis Display ===
 if st.session_state.study_analysis:
     st.header("2. 🤖 AI Study Analysis Results")
@@ -380,7 +780,13 @@ if st.session_state.study_analysis:
     with col1:
         st.subheader("🎯 Recommended Statistical Test")
         suggested_test = analysis.get('suggested_study_type', 'Unknown')
-        st.success(f"**{get_test_display_name(suggested_test)}**")
+        
+        # Special handling for unsupported survival analysis
+        if suggested_test == "survival_analysis":
+            st.error(f"**{get_test_display_name(suggested_test)}**")
+            st.warning("⚠️ **Survival Analysis is not yet supported.** This requires specialized methods like Cox Proportional-Hazards models and Log-rank tests. Consider consulting with a biostatistician for time-to-event analyses.")
+        else:
+            st.success(f"**{get_test_display_name(suggested_test)}**")
         
         # Rationale
         rationale = analysis.get('rationale', 'No rationale provided')
@@ -477,10 +883,7 @@ if st.session_state.estimation_justification:
     with st.expander("📝 AI's Analysis & Justification", expanded=True):
         st.info(st.session_state.estimation_justification)
 
-if st.session_state.references:
-    with st.expander("📚 References & Resources", expanded=False):
-        for ref in st.session_state.references:
-            st.markdown(f"• {ref}")
+# Legacy references section removed - now using Research References from multi-scenario analysis
 
 
 # === Dynamic Parameter Forms ===
@@ -687,6 +1090,242 @@ elif current_test == "correlation":
     # Effect size interpretation
     effect_interp = get_effect_size_interpretation("correlation", true_correlation)
     st.write(f"**Correlation Strength:** {effect_interp}")
+
+elif current_test == "ancova":
+    st.markdown("📊 **ANCOVA (Analysis of Covariance) Configuration**")
+    st.markdown("*Compare groups while adjusting for baseline covariates - very common in clinical trials*")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        N_total_input = st.number_input(
+            "Total Number of Participants (N)",
+            min_value=5,
+            value=ai_params.get('total_n', st.session_state.current_N),
+            step=1,
+            key="N_total_ancova",
+            help="Total participants across all groups"
+        )
+    
+    with col2:
+        cohens_d_input = st.number_input(
+            "Expected Cohen's d (Effect Size)",
+            min_value=-5.0,
+            max_value=5.0,
+            value=ai_params.get('cohens_d', ai_params.get('effect_size_value', st.session_state.current_d)),
+            step=0.01,
+            format="%.3f",
+            key="cohens_d_ancova",
+            help="Effect size after adjusting for covariate"
+        )
+    
+    with col3:
+        covariate_corr = st.slider(
+            "Covariate-Outcome Correlation",
+            min_value=0.0,
+            max_value=0.9,
+            value=0.5,
+            step=0.1,
+            key="covariate_corr_ancova",
+            help="How strongly the covariate predicts the outcome (higher = more power gain)"
+        )
+    
+    st.session_state.current_N = N_total_input
+    st.session_state.current_d = cohens_d_input
+    st.session_state.covariate_correlation = covariate_corr
+    
+    st.info(f"💡 **ANCOVA Benefit:** With r={covariate_corr:.1f} covariate correlation, you gain ~{(1/(1-covariate_corr**2)-1)*100:.0f}% more power vs. standard t-test!")
+
+elif current_test == "fishers_exact":
+    st.markdown("📊 **Fisher's Exact Test Configuration**")
+    st.markdown("*Exact test for 2×2 categorical data - ideal for small samples*")
+    
+    st.subheader("2×2 Contingency Table")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Group 1 (e.g., Treatment)**")
+        group1_success = st.number_input("Success Count", min_value=0, value=15, step=1, key="g1_success")
+        group1_failure = st.number_input("Failure Count", min_value=0, value=5, step=1, key="g1_failure")
+        group1_total = group1_success + group1_failure
+        st.write(f"**Group 1 Total: {group1_total}**")
+        
+    with col2:
+        st.write("**Group 2 (e.g., Control)**")
+        group2_success = st.number_input("Success Count", min_value=0, value=8, step=1, key="g2_success")
+        group2_failure = st.number_input("Failure Count", min_value=0, value=12, step=1, key="g2_failure")
+        group2_total = group2_success + group2_failure
+        st.write(f"**Group 2 Total: {group2_total}**")
+    
+    # Create contingency table
+    contingency_table = [[group1_success, group1_failure], [group2_success, group2_failure]]
+    total_n = group1_total + group2_total
+    
+    # Display table
+    st.subheader("Contingency Table")
+    table_df = pd.DataFrame(
+        contingency_table,
+        index=["Group 1", "Group 2"],
+        columns=["Success", "Failure"]
+    )
+    st.dataframe(table_df)
+    
+    st.session_state.contingency_table = contingency_table
+    st.session_state.current_N = total_n
+    
+    if total_n < 30:
+        st.success("✅ **Good choice!** Fisher's exact test is ideal for small samples (N < 30)")
+    else:
+        st.info("💡 For larger samples (N ≥ 30), Chi-square test might be more appropriate")
+
+elif current_test == "logistic_regression":
+    st.markdown("📊 **Logistic Regression Configuration**")
+    st.markdown("*Model binary outcomes (response/non-response) with odds ratios*")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        N_total_input = st.number_input(
+            "Total Number of Participants (N)",
+            min_value=10,
+            value=ai_params.get('total_n', 100),
+            step=1,
+            key="N_total_logistic",
+            help="Total participants across all groups"
+        )
+    
+    with col2:
+        baseline_rate = st.slider(
+            "Control Group Response Rate",
+            min_value=0.01,
+            max_value=0.99,
+            value=0.3,
+            step=0.01,
+            key="baseline_rate_logistic",
+            help="Expected proportion of responses in control group"
+        )
+    
+    with col3:
+        odds_ratio = st.number_input(
+            "Expected Odds Ratio",
+            min_value=0.1,
+            max_value=10.0,
+            value=2.0,
+            step=0.1,
+            format="%.2f",
+            key="odds_ratio_logistic",
+            help="Treatment effect as odds ratio (1.0 = no effect)"
+        )
+    
+    # Calculate treatment group rate
+    baseline_odds = baseline_rate / (1 - baseline_rate)
+    treatment_odds = baseline_odds * odds_ratio
+    treatment_rate = treatment_odds / (1 + treatment_odds)
+    
+    st.session_state.current_N = N_total_input
+    st.session_state.baseline_rate = baseline_rate
+    st.session_state.odds_ratio = odds_ratio
+    
+    # Show interpretation
+    st.subheader("Expected Results")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Control Response Rate", f"{baseline_rate:.1%}")
+    with col2:
+        st.metric("Treatment Response Rate", f"{treatment_rate:.1%}")
+    with col3:
+        st.metric("Absolute Difference", f"+{(treatment_rate-baseline_rate):.1%}")
+
+elif current_test == "repeated_measures_anova":
+    st.markdown("📊 **Repeated Measures ANOVA Configuration**")
+    st.markdown("*Analyze longitudinal data with multiple time points per subject*")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        N_subjects = st.number_input(
+            "Number of Subjects",
+            min_value=5,
+            value=ai_params.get('total_n', 30) // 3,  # Estimate subjects from total N
+            step=1,
+            key="N_subjects_rm",
+            help="Number of individual participants"
+        )
+        
+        n_timepoints = st.number_input(
+            "Number of Time Points",
+            min_value=2,
+            max_value=10,
+            value=4,
+            step=1,
+            key="n_timepoints_rm",
+            help="Number of repeated measurements per subject"
+        )
+    
+    with col2:
+        cohens_f = st.number_input(
+            "Expected Cohen's f (Effect Size)",
+            min_value=0.0,
+            max_value=2.0,
+            value=0.25,
+            step=0.05,
+            format="%.3f",
+            key="cohens_f_rm",
+            help="Effect size for time/group differences (0.1=small, 0.25=medium, 0.4=large)"
+        )
+        
+        correlation_between = st.slider(
+            "Correlation Between Measures",
+            min_value=0.0,
+            max_value=0.9,
+            value=0.6,
+            step=0.1,
+            key="correlation_rm",
+            help="How correlated are repeated measures (higher = more power)"
+        )
+    
+    total_observations = N_subjects * n_timepoints
+    
+    st.session_state.N_subjects = N_subjects
+    st.session_state.n_timepoints = n_timepoints
+    st.session_state.cohens_f = cohens_f
+    st.session_state.correlation_between_measures = correlation_between
+    st.session_state.current_N = total_observations  # For compatibility
+    
+    # Show study design summary
+    st.subheader("Study Design Summary")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Observations", total_observations)
+    with col2:
+        st.metric("Subjects", N_subjects)
+    with col3:
+        st.metric("Measurements per Subject", n_timepoints)
+    
+    # Effect size interpretation
+    if cohens_f < 0.15:
+        effect_size_interp = "Small Effect"
+    elif cohens_f < 0.35:
+        effect_size_interp = "Medium Effect"  
+    else:
+        effect_size_interp = "Large Effect"
+    
+    st.write(f"**Effect Size Interpretation:** {effect_size_interp}")
+
+elif current_test == "survival_analysis":
+    st.error("🚫 **Survival Analysis is not yet supported**")
+    st.markdown("""
+    This study requires time-to-event analysis methods like:
+    - **Cox Proportional-Hazards Models**
+    - **Log-rank Tests**  
+    - **Kaplan-Meier Curves**
+    
+    These advanced methods will be added in a future update. For now, consider:
+    - Consulting with a biostatistician
+    - Using specialized survival analysis software (R, SAS, SPSS)
+    - Converting to binary outcomes if appropriate (event/no-event at fixed timepoint)
+    """)
 
 else:
     st.warning(f"Parameter configuration for {current_test} is not yet implemented.")

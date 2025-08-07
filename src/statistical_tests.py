@@ -965,6 +965,477 @@ class CorrelationTest(StatisticalTest):
             return None, f"Error during correlation power calculation: {str(e)}"
 
 
+class ANCOVATest(StatisticalTest):
+    """
+    Analysis of Covariance (ANCOVA) implementation.
+    
+    ANCOVA extends t-test/ANOVA by adjusting for baseline covariates,
+    commonly used in clinical trials to control for baseline measurements.
+    Very common in clinical trials (increases power and reduces bias).
+    
+    Assumes:
+    - Continuous outcome and covariate variables
+    - Linear relationship between covariate and outcome
+    - Homogeneous regression slopes across groups
+    - Normal distribution of residuals
+    """
+    
+    def get_required_params(self) -> List[str]:
+        """Required parameters for ANCOVA."""
+        return ["N_total", "cohens_d", "covariate_correlation"]
+    
+    def validate_params(self, **params) -> Tuple[bool, Optional[str]]:
+        """Validate parameters for ANCOVA."""
+        required_params = self.get_required_params()
+        for param in required_params:
+            if param not in params:
+                return False, f"Missing required parameter: {param}"
+        
+        N_total = params.get("N_total")
+        cohens_d = params.get("cohens_d")
+        covariate_correlation = params.get("covariate_correlation")
+        
+        # Validate N_total
+        if not isinstance(N_total, (int, float)) or N_total <= 4:
+            return False, "Total N must be greater than 4 for ANCOVA."
+        
+        # Validate cohens_d
+        if not isinstance(cohens_d, (int, float)):
+            return False, "Cohen's d must be a number."
+            
+        # Validate covariate correlation
+        if not isinstance(covariate_correlation, (int, float)) or not (-1 <= covariate_correlation <= 1):
+            return False, "Covariate correlation must be between -1 and 1."
+        
+        return True, None
+    
+    def calculate_p_value(self, **params) -> Tuple[Optional[float], Optional[str]]:
+        """Calculate p-value for ANCOVA."""
+        # Validate parameters first
+        is_valid, error_msg = self.validate_params(**params)
+        if not is_valid:
+            return None, error_msg
+        
+        try:
+            N_total = int(params["N_total"])
+            cohens_d = float(params["cohens_d"])
+            covariate_correlation = float(params["covariate_correlation"])
+            
+            n_per_group = N_total / 2.0
+            
+            # ANCOVA adjusts effect size by reducing residual variance
+            # Adjusted effect size = d * sqrt(1 - r^2) where r is covariate correlation
+            adjusted_cohens_d = cohens_d / np.sqrt(1 - covariate_correlation**2)
+            
+            # Calculate t-statistic with adjusted effect size
+            pooled_se = np.sqrt(2 / n_per_group)  # Standard error for two groups
+            t_stat = adjusted_cohens_d / pooled_se
+            
+            # Degrees of freedom: N - groups - covariates = N - 2 - 1 = N - 3
+            df = N_total - 3
+            
+            # Two-tailed p-value
+            p_value = 2 * (1 - stats.t.cdf(abs(t_stat), df))
+            
+            return p_value, None
+            
+        except Exception as e:
+            return None, f"Error during ANCOVA p-value calculation: {str(e)}"
+    
+    def calculate_power(self, **params) -> Tuple[Optional[float], Optional[str]]:
+        """Calculate statistical power for ANCOVA."""
+        # Validate parameters first
+        is_valid, error_msg = self.validate_params(**params)
+        if not is_valid:
+            return None, error_msg
+        
+        try:
+            N_total = int(params["N_total"])
+            cohens_d = float(params["cohens_d"])
+            covariate_correlation = float(params["covariate_correlation"])
+            alpha = float(params.get("alpha", 0.05))
+            
+            n_per_group = N_total / 2.0
+            
+            # ANCOVA power benefit from covariate adjustment
+            adjusted_cohens_d = cohens_d / np.sqrt(1 - covariate_correlation**2)
+            
+            # Calculate non-centrality parameter
+            ncp = adjusted_cohens_d * np.sqrt(n_per_group / 2)
+            
+            # Degrees of freedom
+            df = N_total - 3
+            
+            # Critical t-value (two-tailed)
+            t_crit = stats.t.ppf(1 - alpha / 2, df)
+            
+            # Power calculation using non-central t-distribution
+            power = 1 - stats.nct.cdf(t_crit, df, ncp) + stats.nct.cdf(-t_crit, df, ncp)
+            
+            # Ensure power is within valid range
+            power = min(max(power, 0.0), 1.0)
+            
+            return power, None
+            
+        except Exception as e:
+            return None, f"Error during ANCOVA power calculation: {str(e)}"
+
+
+class FishersExactTest(StatisticalTest):
+    """
+    Fisher's exact test implementation.
+    
+    Alternative to chi-square for small sample sizes or sparse contingency tables.
+    Provides exact p-values rather than asymptotic approximations.
+    
+    Commonly used when:
+    - Small sample sizes (n < 30)
+    - Expected cell counts < 5
+    - Rare events in clinical trials
+    """
+    
+    def get_required_params(self) -> List[str]:
+        """Required parameters for Fisher's exact test."""
+        return ["contingency_table"]
+    
+    def validate_params(self, **params) -> Tuple[bool, Optional[str]]:
+        """Validate parameters for Fisher's exact test."""
+        if "contingency_table" not in params:
+            return False, "Missing required parameter: contingency_table"
+        
+        table = params["contingency_table"]
+        
+        # Check if contingency_table is provided and has correct format
+        if not isinstance(table, (list, np.ndarray)):
+            return False, "Contingency table must be a list or numpy array."
+        
+        try:
+            table = np.array(table)
+            if table.shape != (2, 2):
+                return False, "Fisher's exact test requires a 2x2 contingency table."
+            
+            if not np.all(table >= 0):
+                return False, "All cell counts must be non-negative."
+                
+            if np.sum(table) == 0:
+                return False, "Total count cannot be zero."
+                
+        except Exception as e:
+            return False, f"Invalid contingency table format: {str(e)}"
+        
+        return True, None
+    
+    def calculate_p_value(self, **params) -> Tuple[Optional[float], Optional[str]]:
+        """Calculate exact p-value using Fisher's exact test."""
+        # Validate parameters first
+        is_valid, error_msg = self.validate_params(**params)
+        if not is_valid:
+            return None, error_msg
+        
+        try:
+            table = np.array(params["contingency_table"])
+            
+            # Use scipy.stats.fisher_exact for exact p-value
+            oddsratio, p_value = stats.fisher_exact(table, alternative='two-sided')
+            
+            return p_value, None
+            
+        except Exception as e:
+            return None, f"Error during Fisher's exact test calculation: {str(e)}"
+    
+    def calculate_power(self, **params) -> Tuple[Optional[float], Optional[str]]:
+        """
+        Calculate power for Fisher's exact test.
+        
+        Note: Exact power calculation for Fisher's test is complex.
+        This provides an approximation based on effect size and sample size.
+        """
+        # Validate parameters first  
+        is_valid, error_msg = self.validate_params(**params)
+        if not is_valid:
+            return None, error_msg
+        
+        try:
+            table = np.array(params["contingency_table"])
+            alpha = float(params.get("alpha", 0.05))
+            
+            # Calculate total sample size and proportions
+            n = np.sum(table)
+            
+            # For small samples, power is highly dependent on exact configuration
+            # This provides a rough approximation
+            if n < 10:
+                power = 0.1  # Very low power for very small samples
+            elif n < 30:
+                power = 0.3  # Low power for small samples
+            else:
+                # Use chi-square approximation for larger samples
+                chi2_stat = stats.chi2_contingency(table)[0]
+                effect_size = np.sqrt(chi2_stat / n)  # Cramer's V
+                
+                # Approximate power calculation
+                ncp = n * effect_size**2
+                power = 1 - stats.chi2.cdf(stats.chi2.ppf(1 - alpha, 1), 1, ncp)
+            
+            # Ensure power is within valid range
+            power = min(max(power, 0.0), 1.0)
+            
+            return power, None
+            
+        except Exception as e:
+            return None, f"Error during Fisher's exact test power calculation: {str(e)}"
+
+
+class LogisticRegressionTest(StatisticalTest):
+    """
+    Logistic regression implementation for binary outcomes.
+    
+    Used for modeling binary/categorical outcomes in clinical trials:
+    - Response vs non-response
+    - Cure vs no cure  
+    - Adverse event vs no adverse event
+    
+    Provides odds ratios and confidence intervals.
+    """
+    
+    def get_required_params(self) -> List[str]:
+        """Required parameters for logistic regression."""
+        return ["N_total", "baseline_rate", "odds_ratio"]
+    
+    def validate_params(self, **params) -> Tuple[bool, Optional[str]]:
+        """Validate parameters for logistic regression."""
+        required_params = self.get_required_params()
+        for param in required_params:
+            if param not in params:
+                return False, f"Missing required parameter: {param}"
+        
+        N_total = params.get("N_total")
+        baseline_rate = params.get("baseline_rate") 
+        odds_ratio = params.get("odds_ratio")
+        
+        # Validate N_total
+        if not isinstance(N_total, (int, float)) or N_total <= 2:
+            return False, "Total N must be greater than 2."
+        
+        # Validate baseline_rate (probability)
+        if not isinstance(baseline_rate, (int, float)) or not (0 < baseline_rate < 1):
+            return False, "Baseline rate must be between 0 and 1 (exclusive)."
+            
+        # Validate odds_ratio
+        if not isinstance(odds_ratio, (int, float)) or odds_ratio <= 0:
+            return False, "Odds ratio must be positive."
+        
+        return True, None
+    
+    def calculate_p_value(self, **params) -> Tuple[Optional[float], Optional[str]]:
+        """Calculate p-value for logistic regression."""
+        # Validate parameters first
+        is_valid, error_msg = self.validate_params(**params)
+        if not is_valid:
+            return None, error_msg
+        
+        try:
+            N_total = int(params["N_total"])
+            baseline_rate = float(params["baseline_rate"])
+            odds_ratio = float(params["odds_ratio"])
+            
+            # Calculate treatment group probability from odds ratio
+            baseline_odds = baseline_rate / (1 - baseline_rate)
+            treatment_odds = baseline_odds * odds_ratio
+            treatment_rate = treatment_odds / (1 + treatment_odds)
+            
+            # Equal group sizes
+            n_per_group = N_total // 2
+            
+            # Expected events in each group
+            control_events = n_per_group * baseline_rate
+            treatment_events = n_per_group * treatment_rate
+            
+            # Simulate contingency table
+            table = np.array([
+                [control_events, n_per_group - control_events],
+                [treatment_events, n_per_group - treatment_events]
+            ])
+            
+            # Use chi-square test for p-value (standard approach for logistic regression)
+            chi2_stat, p_value, _, _ = stats.chi2_contingency(table)
+            
+            return p_value, None
+            
+        except Exception as e:
+            return None, f"Error during logistic regression p-value calculation: {str(e)}"
+    
+    def calculate_power(self, **params) -> Tuple[Optional[float], Optional[str]]:
+        """Calculate power for logistic regression."""
+        # Validate parameters first
+        is_valid, error_msg = self.validate_params(**params)
+        if not is_valid:
+            return None, error_msg
+        
+        try:
+            N_total = int(params["N_total"])
+            baseline_rate = float(params["baseline_rate"])
+            odds_ratio = float(params["odds_ratio"])
+            alpha = float(params.get("alpha", 0.05))
+            
+            n_per_group = N_total // 2
+            
+            # Calculate treatment group probability
+            baseline_odds = baseline_rate / (1 - baseline_rate)
+            treatment_odds = baseline_odds * odds_ratio
+            treatment_rate = treatment_odds / (1 + treatment_odds)
+            
+            # Effect size (log odds ratio)
+            log_or = np.log(odds_ratio)
+            
+            # Variance of log odds ratio
+            var_log_or = (1/(n_per_group * baseline_rate * (1 - baseline_rate)) + 
+                         1/(n_per_group * treatment_rate * (1 - treatment_rate)))
+            
+            # Z-statistic
+            z_stat = abs(log_or) / np.sqrt(var_log_or)
+            
+            # Critical value
+            z_crit = stats.norm.ppf(1 - alpha / 2)
+            
+            # Power calculation
+            power = 2 * (1 - stats.norm.cdf(z_crit - z_stat))
+            
+            # Ensure power is within valid range
+            power = min(max(power, 0.0), 1.0)
+            
+            return power, None
+            
+        except Exception as e:
+            return None, f"Error during logistic regression power calculation: {str(e)}"
+
+
+class RepeatedMeasuresANOVA(StatisticalTest):
+    """
+    Repeated Measures ANOVA implementation.
+    
+    Used for analyzing longitudinal data with multiple time points:
+    - Change over time within subjects
+    - Treatment x time interactions  
+    - Common in clinical trials with multiple follow-up visits
+    
+    Accounts for within-subject correlation and reduces error variance.
+    """
+    
+    def get_required_params(self) -> List[str]:
+        """Required parameters for repeated measures ANOVA."""
+        return ["N_subjects", "n_timepoints", "cohens_f", "correlation_between_measures"]
+    
+    def validate_params(self, **params) -> Tuple[bool, Optional[str]]:
+        """Validate parameters for repeated measures ANOVA."""
+        required_params = self.get_required_params()
+        for param in required_params:
+            if param not in params:
+                return False, f"Missing required parameter: {param}"
+        
+        N_subjects = params.get("N_subjects")
+        n_timepoints = params.get("n_timepoints")
+        cohens_f = params.get("cohens_f") 
+        correlation = params.get("correlation_between_measures")
+        
+        # Validate N_subjects
+        if not isinstance(N_subjects, (int, float)) or N_subjects <= 2:
+            return False, "Number of subjects must be greater than 2."
+        
+        # Validate n_timepoints
+        if not isinstance(n_timepoints, (int, float)) or n_timepoints < 2:
+            return False, "Number of timepoints must be at least 2."
+            
+        # Validate Cohen's f
+        if not isinstance(cohens_f, (int, float)) or cohens_f < 0:
+            return False, "Cohen's f must be non-negative."
+            
+        # Validate correlation
+        if not isinstance(correlation, (int, float)) or not (-1 <= correlation <= 1):
+            return False, "Correlation between measures must be between -1 and 1."
+        
+        return True, None
+    
+    def calculate_p_value(self, **params) -> Tuple[Optional[float], Optional[str]]:
+        """Calculate p-value for repeated measures ANOVA."""
+        # Validate parameters first
+        is_valid, error_msg = self.validate_params(**params)
+        if not is_valid:
+            return None, error_msg
+        
+        try:
+            N_subjects = int(params["N_subjects"])
+            n_timepoints = int(params["n_timepoints"])
+            cohens_f = float(params["cohens_f"])
+            correlation = float(params["correlation_between_measures"])
+            
+            # Degrees of freedom
+            df_between = n_timepoints - 1  # Between time points
+            df_within = (N_subjects - 1) * (n_timepoints - 1)  # Within subjects error
+            
+            # Greenhouse-Geisser correction for sphericity
+            # Simplified assumption: epsilon = 1 / n_timepoints (conservative)
+            epsilon = max(1.0 / n_timepoints, 0.5)  # Bounded below by 0.5
+            df_between_adj = df_between * epsilon
+            df_within_adj = df_within * epsilon
+            
+            # Effect size to F-statistic conversion
+            # F = (cohens_f^2) * N_subjects
+            f_stat = (cohens_f**2) * N_subjects
+            
+            # Adjust for repeated measures correlation (increases sensitivity)
+            f_stat = f_stat / (1 - correlation)
+            
+            # Calculate p-value using F-distribution
+            p_value = 1 - stats.f.cdf(f_stat, df_between_adj, df_within_adj)
+            
+            return p_value, None
+            
+        except Exception as e:
+            return None, f"Error during repeated measures ANOVA p-value calculation: {str(e)}"
+    
+    def calculate_power(self, **params) -> Tuple[Optional[float], Optional[str]]:
+        """Calculate power for repeated measures ANOVA."""
+        # Validate parameters first
+        is_valid, error_msg = self.validate_params(**params)
+        if not is_valid:
+            return None, error_msg
+        
+        try:
+            N_subjects = int(params["N_subjects"])
+            n_timepoints = int(params["n_timepoints"])
+            cohens_f = float(params["cohens_f"])
+            correlation = float(params["correlation_between_measures"])
+            alpha = float(params.get("alpha", 0.05))
+            
+            # Degrees of freedom
+            df_between = n_timepoints - 1
+            df_within = (N_subjects - 1) * (n_timepoints - 1)
+            
+            # Greenhouse-Geisser correction
+            epsilon = max(1.0 / n_timepoints, 0.5)
+            df_between_adj = df_between * epsilon
+            df_within_adj = df_within * epsilon
+            
+            # Non-centrality parameter
+            # Enhanced by repeated measures (reduces error variance)
+            ncp = N_subjects * (cohens_f**2) / (1 - correlation)
+            
+            # Critical F-value
+            f_crit = stats.f.ppf(1 - alpha, df_between_adj, df_within_adj)
+            
+            # Power calculation using non-central F-distribution  
+            power = 1 - stats.ncf.cdf(f_crit, df_between_adj, df_within_adj, ncp)
+            
+            # Ensure power is within valid range
+            power = min(max(power, 0.0), 1.0)
+            
+            return power, None
+            
+        except Exception as e:
+            return None, f"Error during repeated measures ANOVA power calculation: {str(e)}"
+
+
 class StatisticalTestFactory:
     """
     Factory class for creating and managing statistical tests.
@@ -1015,6 +1486,33 @@ class StatisticalTestFactory:
         self.register_test("correlation_test", CorrelationTest)
         self.register_test("pearson_correlation", CorrelationTest)
         self.register_test("spearman_correlation", CorrelationTest)
+        
+        # ANCOVA test registration
+        self.register_test("ancova", ANCOVATest)
+        self.register_test("analysis_of_covariance", ANCOVATest)
+        self.register_test("covariance_analysis", ANCOVATest)
+        self.register_test("adjusted_comparison", ANCOVATest)
+        self.register_test("baseline_adjusted", ANCOVATest)
+        
+        # Fisher's exact test registration
+        self.register_test("fishers_exact", FishersExactTest)
+        self.register_test("exact_test", FishersExactTest)
+        self.register_test("fisher_exact", FishersExactTest)
+        self.register_test("small_sample_categorical", FishersExactTest)
+        
+        # Logistic regression test registration  
+        self.register_test("logistic_regression", LogisticRegressionTest)
+        self.register_test("binary_outcome", LogisticRegressionTest)
+        self.register_test("odds_ratio", LogisticRegressionTest)
+        self.register_test("response_rate", LogisticRegressionTest)
+        self.register_test("binary_regression", LogisticRegressionTest)
+        
+        # Repeated measures ANOVA registration
+        self.register_test("repeated_measures_anova", RepeatedMeasuresANOVA)
+        self.register_test("longitudinal_anova", RepeatedMeasuresANOVA)
+        self.register_test("within_subjects_anova", RepeatedMeasuresANOVA)
+        self.register_test("time_series_anova", RepeatedMeasuresANOVA)
+        self.register_test("rm_anova", RepeatedMeasuresANOVA)
     
     def register_test(self, test_name: str, test_class: type):
         """
