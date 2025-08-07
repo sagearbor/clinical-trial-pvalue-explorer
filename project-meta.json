@@ -1,1 +1,25 @@
-{"name":"Clinical Trial P-Value Explorer","description":"This tool estimates p-values for clinical trials using AI-generated inputs.","technologies":["Python","FastAPI","Streamlit","Gemini API"],"category":["web-app","api","data-analysis"],"status":"active","language":["Python"],"hosted_url":null}
+{
+  "name": "Clinical Trial P-Value Explorer",
+  "description": "This tool estimates participant numbers and effect sizes for trials. It features an interactive p-value calculator.",
+  "technologies": [
+    "Python",
+    "FastAPI",
+    "Streamlit",
+    "AI"
+  ],
+  "category": [
+    "web-app",
+    "data-analysis"
+  ],
+  "status": "active",
+  "language": [
+    "Python"
+  ],
+  "hosted_url": null,
+  "activity": {
+    "commits_30d": 1,
+    "last_commit": "2025-08-07",
+    "contributors": 0,
+    "hotness_score": 32
+  }
+}
