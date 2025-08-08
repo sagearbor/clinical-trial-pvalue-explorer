@@ -15,6 +15,25 @@ from statistical_utils import calculate_p_value_from_N_d, calculate_power_from_N
 
 # Research intelligence is now loaded in background by the API backend
 
+def debug_print(message: str, level: str = "Basic"):
+    """Print debug message based on debug level setting"""
+    debug_level = st.session_state.get('debug_level', 'Off')
+    
+    level_hierarchy = {
+        'Off': 0,
+        'Basic': 1,
+        'Detailed': 2, 
+        'Full': 3
+    }
+    
+    if level_hierarchy.get(debug_level, 0) >= level_hierarchy.get(level, 1):
+        if level == "Basic":
+            st.info(f"🔍 **Debug**: {message}")
+        elif level == "Detailed":
+            st.write(f"🔎 **Debug Detail**: {message}")
+        elif level == "Full":
+            st.write(f"🐛 **Debug Full**: {message}")
+
 # Configuration for the FastAPI backend URLs
 # Assumes FastAPI is running on localhost:8000
 BASE_URL = "http://localhost:8000"
@@ -555,6 +574,73 @@ with st.sidebar:
         # Store in session state so it can be accessed later
         st.session_state.selected_llm_provider = llm_provider
     
+    # Debug Settings
+    with st.expander("🐛 Debug Options"):
+        debug_level = st.selectbox(
+            "Debug Level:",
+            ["Off", "Basic", "Detailed", "Full"],
+            help="Control amount of debug information shown",
+            key="debug_level_selector"
+        )
+        
+        # Store debug setting in session state
+        st.session_state.debug_level = debug_level
+        
+        if debug_level != "Off":
+            st.info(f"Debug mode: {debug_level}")
+            st.caption("Debug info will appear throughout the app")
+    
+    # Flow Chart
+    with st.expander("📊 Data Flow Chart"):
+        st.markdown("**Application Flow Diagram:**")
+        mermaid_chart = """
+        ```mermaid
+        flowchart TD
+            A[User enters research idea] --> B{Literature Search checkbox?}
+            
+            B -->|Yes| C[Multi-scenario Analysis API]
+            B -->|No| D[Basic Analysis API]
+            
+            C --> E[Extract references, scenarios, study analysis]
+            D --> F[Extract study analysis only]
+            
+            E --> G[Show Section 2: AI Analysis + References]
+            F --> H[Show Section 2: AI Analysis only]
+            
+            G --> I[Show Section 3: Test Configuration]
+            H --> I
+            
+            I --> J[Calculate P-value & Power]
+            J --> K[Display Statistical Results]
+            
+            G --> L{5 Scenarios button clicked?}
+            L -->|Yes| M[Generate uncertainty scenarios]
+            L -->|No| N[End]
+            
+            M --> O[Show Multi-Scenario Dashboard]
+            O --> P[Power curves & scenario comparison]
+            P --> N
+            
+            K --> N
+            
+            style A fill:#e1f5fe
+            style C fill:#f3e5f5
+            style D fill:#f3e5f5
+            style G fill:#e8f5e8
+            style H fill:#e8f5e8
+            style O fill:#fff3e0
+        ```
+        """
+        st.markdown(mermaid_chart)
+        
+        st.markdown("**Key Decision Points:**")
+        st.markdown("""
+        - **Literature Search**: Determines which API endpoint to use
+        - **Analysis Type**: Multi-scenario (with refs) vs Basic (faster)
+        - **5 Scenarios**: Optional uncertainty analysis after main analysis
+        - **Debug Level**: Controls visibility of technical information
+        """)
+    
     # Collapsed About section
     with st.expander("ℹ️ About", expanded=False):
         st.info(
@@ -638,13 +724,13 @@ if analyze_button:
                 scenarios = scenario_data.get('scenarios', [])
                 if scenarios:
                     # Debug: Check structure of scenarios from API
-                    st.write(f"Debug: API returned {len(scenarios)} scenarios")
+                    debug_print(f"API returned {len(scenarios)} scenarios", "Basic")
                     for i, scenario in enumerate(scenarios):
-                        st.write(f"Debug: Scenario {i+1} type: {type(scenario)}")
+                        debug_print(f"Scenario {i+1} type: {type(scenario)}", "Detailed")
                         if isinstance(scenario, dict):
-                            st.write(f"Debug: Scenario {i+1} keys: {list(scenario.keys())}")
+                            debug_print(f"Scenario {i+1} keys: {list(scenario.keys())}", "Full")
                         else:
-                            st.write(f"Debug: Scenario {i+1} value: {scenario}")
+                            debug_print(f"Scenario {i+1} value: {scenario}", "Detailed")
                     
                     # Handle different API response formats
                     if all(isinstance(s, dict) for s in scenarios):
@@ -806,13 +892,13 @@ if st.session_state.study_analysis:  # Only show after basic analysis is done
                             scenarios = scenario_data.get('scenarios', [])
                             if scenarios:
                                 # Debug: Check structure of scenarios from 5-scenario API
-                                st.write(f"Debug: 5-Scenario API returned {len(scenarios)} scenarios")
+                                debug_print(f"5-Scenario API returned {len(scenarios)} scenarios", "Basic")
                                 for i, scenario in enumerate(scenarios):
-                                    st.write(f"Debug: Scenario {i+1} type: {type(scenario)}")
+                                    debug_print(f"Scenario {i+1} type: {type(scenario)}", "Detailed")
                                     if isinstance(scenario, dict):
-                                        st.write(f"Debug: Scenario {i+1} keys: {list(scenario.keys())}")
+                                        debug_print(f"Scenario {i+1} keys: {list(scenario.keys())}", "Full")
                                     else:
-                                        st.write(f"Debug: Scenario {i+1} value: {scenario}")
+                                        debug_print(f"Scenario {i+1} value: {scenario}", "Detailed")
                                 
                                 # Handle different API response formats
                                 if all(isinstance(s, dict) for s in scenarios):
@@ -1086,7 +1172,7 @@ if st.session_state.study_analysis:
                 references_warning = getattr(st.session_state, 'references_warning', None)
                 
                 # Debug info
-                st.write(f"Debug: Found {len(references)} references, source: {references_source}")
+                debug_print(f"Found {len(references)} references, source: {references_source}", "Basic")
                 
                 if references_warning:
                     st.error(f"🚨 **{references_warning}**")
@@ -1779,30 +1865,75 @@ if st.session_state.study_analysis:
     st.session_state.current_p_value = p_val
     st.session_state.p_value_message = msg
 
-    st.subheader("Calculated P-Value")
-    if st.session_state.p_value_message:
-        st.warning(st.session_state.p_value_message)
-
-    if st.session_state.current_p_value is not None:
-        st.metric(label="Calculated P-Value", value=f"{st.session_state.current_p_value:.4f}")
-        if st.session_state.current_p_value < 0.05:
-            st.success("This p-value is typically considered statistically significant (p < 0.05).")
-        else:
-            st.info("This p-value is not typically considered statistically significant (p >= 0.05).")
-    else:
-        st.info("P-value will be calculated once valid parameters are set.")
-
-    # --- New Power / Probability Visualization ---
+    # --- Statistical Results: P-Value and Power (Side by Side) ---
+    st.subheader("Statistical Results")
+    
+    # Calculate both values
     power_val, power_msg = calculate_power_from_N_d(st.session_state.current_N, st.session_state.current_d)
-
-    st.subheader("Probability of Detecting the Effect")
-    if power_msg:
-        st.warning(power_msg)
-    elif power_val is not None:
-        st.metric(label="Estimated Power", value=f"{power_val*100:.1f}%")
-        st.progress(min(max(power_val, 0.0), 1.0))
-    else:
-        st.info("Power will be calculated once valid parameters are set.")
+    
+    # Display in two columns for compact layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**P-Value**")
+        if st.session_state.p_value_message:
+            st.warning(st.session_state.p_value_message)
+        elif st.session_state.current_p_value is not None:
+            # Format p-value to avoid showing 0.0000
+            p_val = st.session_state.current_p_value
+            if p_val == 0:
+                p_display = "< 0.0001"
+                p_sci = "< 1e-4"
+            elif p_val < 0.0001:
+                p_display = f"{p_val:.2e}"
+                p_sci = f"{p_val:.2e}"
+            elif p_val < 0.001:
+                p_display = f"{p_val:.4f}"
+                p_sci = f"{p_val:.2e}"
+            else:
+                p_display = f"{p_val:.4f}"
+                p_sci = f"{p_val:.2e}"
+            
+            # Toggle button for scientific notation
+            col1a, col1b = st.columns([2, 1])
+            with col1a:
+                if 'show_p_scientific' not in st.session_state:
+                    st.session_state.show_p_scientific = False
+                
+                display_val = p_sci if st.session_state.show_p_scientific else p_display
+                st.metric(label="Value", value=display_val)
+            
+            with col1b:
+                if st.button("🔬", key="toggle_p_sci", help="Toggle scientific notation"):
+                    st.session_state.show_p_scientific = not st.session_state.show_p_scientific
+                    st.rerun()
+            
+            # Significance indicator
+            if p_val < 0.05:
+                st.success("✅ Significant (p < 0.05)")
+            else:
+                st.info("📊 Not significant (p ≥ 0.05)")
+        else:
+            st.info("P-value will be calculated once valid parameters are set.")
+    
+    with col2:
+        st.write("**Statistical Power**")
+        if power_msg:
+            st.warning(power_msg)
+        elif power_val is not None:
+            st.metric(label="Value", value=f"{power_val*100:.1f}%")
+            # Compact progress bar
+            st.progress(min(max(power_val, 0.0), 1.0), text=f"Power: {power_val*100:.0f}%")
+            
+            # Power interpretation
+            if power_val >= 0.8:
+                st.success("✅ Good power (≥80%)")
+            elif power_val >= 0.5:
+                st.warning("⚠️ Low power (50-79%)")
+            else:
+                st.error("❌ Very low power (<50%)")
+        else:
+            st.info("Power will be calculated once valid parameters are set.")
 
     st.markdown("---")
     st.caption("Remember: This tool is for educational and exploratory purposes. Always consult with a qualified statistician for actual clinical trial design and sample size calculations.")
