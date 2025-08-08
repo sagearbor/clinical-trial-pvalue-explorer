@@ -19,7 +19,8 @@
       "Bash(# Move core Python modules to src/\nmv api.py src/\nmv statistical_tests.py src/\nmv statistical_utils.py src/\nmv research_intelligence.py src/\n\n# Move main app to root but make clear it''s the main entry\n# app.py stays at root as it''s the main Streamlit entry point\n\n# Move test files to proper test directory structure\nmv test_enhanced_api_endpoints.py tests/\nmv test_factory_pattern.py tests/\nmv test_frontend_integration.py tests/\n\n# Consolidate development documentation\nmv PHASE_2_COMPLETION_REPORT.md docs/development/\nmv PHASE_3_TRANSITION_GUIDE.md docs/development/\nmv ADDING_NEW_STATISTICAL_TESTS.md docs/development/\nmv SYSTEM_CAPABILITY_MATRIX.md docs/development/\nmv development_checklist.yaml docs/development/\n\n# Keep main docs at root\n# README.md, DEVELOPMENT_ROADMAP.md, IMPLEMENTATION.md stay at root)",
       "Bash(streamlit run:*)",
       "Bash(kill:*)",
-      "WebFetch(domain:clinicaltrials.gov)"
+      "WebFetch(domain:clinicaltrials.gov)",
+      "Bash(git config:*)"
     ],
     "deny": []
   }
