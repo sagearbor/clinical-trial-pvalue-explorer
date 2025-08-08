@@ -18,12 +18,19 @@ def validate_statistical_inputs(N_total: float, cohens_d: float) -> Optional[str
     Returns:
         Error message if validation fails, None if inputs are valid
     """
-    if not isinstance(N_total, (int, float)) or N_total <= 2:
-        return "Total N must be a number greater than 2."
-    if not isinstance(cohens_d, (int, float)):
-        return "Cohen's d must be a number."
+    # Convert numpy types to Python types for validation
+    try:
+        N_total_val = float(N_total)
+        cohens_d_val = float(cohens_d)
+    except (TypeError, ValueError):
+        return "Invalid input types - N_total and Cohen's d must be numeric."
     
-    N_total_int = int(N_total)
+    if N_total_val <= 2:
+        return "Total N must be a number greater than 2."
+    if not np.isfinite(cohens_d_val):
+        return "Cohen's d must be a finite number."
+    
+    N_total_int = int(N_total_val)
     if N_total_int <= 2:
         return "Total N must be greater than 2 for valid degrees of freedom."
     

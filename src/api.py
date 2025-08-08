@@ -20,15 +20,68 @@ from anthropic import Anthropic
 # Import statistical test factory
 from statistical_tests import get_factory, StatisticalTestFactory
 
-# Import research intelligence (optional)
-try:
-    from research_intelligence import ResearchIntelligenceEngine
-    RESEARCH_INTELLIGENCE_AVAILABLE = True
-    print("--- Research intelligence import successful ---")
-except ImportError as e:
-    print(f"--- Research intelligence import failed: {e} ---")
-    ResearchIntelligenceEngine = None
-    RESEARCH_INTELLIGENCE_AVAILABLE = False
+# Background loading setup
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+# Research Intelligence Configuration - Background Loading
+RESEARCH_INTELLIGENCE_AVAILABLE = False
+ResearchIntelligenceEngine = None
+research_engine_instance = None
+research_loading_status = "not_started"  # "not_started", "loading", "ready", "failed"
+research_load_thread = None
+
+def load_research_intelligence_background():
+    """Load research intelligence in background thread."""
+    global RESEARCH_INTELLIGENCE_AVAILABLE, ResearchIntelligenceEngine, research_engine_instance, research_loading_status
+    
+    research_loading_status = "loading"
+    print("--- Starting background load of research intelligence module ---")
+    
+    try:
+        # Import and initialize in background
+        from research_intelligence import ResearchIntelligenceEngine as RIE
+        ResearchIntelligenceEngine = RIE
+        research_engine_instance = RIE()  # Pre-initialize one instance
+        RESEARCH_INTELLIGENCE_AVAILABLE = True
+        research_loading_status = "ready"
+        print("--- Research intelligence background load successful ---")
+    except Exception as e:
+        RESEARCH_INTELLIGENCE_AVAILABLE = False
+        ResearchIntelligenceEngine = None
+        research_engine_instance = None
+        research_loading_status = "failed"
+        print(f"--- Research intelligence background load failed: {e} ---")
+
+def get_research_engine():
+    """Get research engine, waiting for background load if needed."""
+    global research_loading_status, research_engine_instance, research_load_thread
+    
+    if research_loading_status == "ready":
+        return research_engine_instance
+    elif research_loading_status == "loading":
+        # Wait for background load to complete (with timeout)
+        if research_load_thread and research_load_thread.is_alive():
+            print("--- Waiting for research intelligence background load to complete ---")
+            research_load_thread.join(timeout=30)  # Wait max 30 seconds
+        return research_engine_instance if research_loading_status == "ready" else None
+    elif research_loading_status == "not_started":
+        # Start loading if not started yet
+        start_background_loading()
+        return get_research_engine()  # Recursive call after starting
+    else:
+        return None
+
+def start_background_loading():
+    """Start background loading if not already started."""
+    global research_load_thread, research_loading_status
+    if research_loading_status == "not_started":
+        research_load_thread = threading.Thread(target=load_research_intelligence_background, daemon=True)
+        research_load_thread.start()
+
+# Start background loading immediately when API starts
+print("--- API starting - research intelligence will load in background ---")
+start_background_loading()
 
 # --- CRITICAL: load_dotenv() must be called BEFORE accessing os.getenv for .env variables ---
 load_dotenv(override=True)
@@ -49,6 +102,9 @@ class EnhancedIdeaInput(BaseModel):
     study_description: str
     llm_provider: str | None = None  # Optional LLM provider override
     max_papers: int | None = 5  # Number of research papers to fetch
+    pubmed_papers: int | None = None  # Specific count for PubMed
+    arxiv_papers: int | None = None   # Specific count for arXiv
+    clinicaltrials_papers: int | None = None  # Specific count for ClinicalTrials.gov
 
 class EstimationOutput(BaseModel):
     initial_N: int | None = None
@@ -114,6 +170,7 @@ class MultiScenarioAnalysisOutput(BaseModel):
     references: list[str] | None = None
     references_source: str | None = None  # 'pubmed_arxiv' or 'ai_generated'
     references_warning: str | None = None  # Warning message if AI-generated
+    research_papers_data: list[dict] | None = None  # Structured research data for table view
     processed_idea: str | None = None
     llm_provider_used: str | None = None
     error: str | None = None
@@ -954,6 +1011,93 @@ async def process_idea_enhanced(item: EnhancedIdeaInput):
         print(f"--- Performing statistical calculations for study type: {suggested_study_type} ---")
         calculation_results = perform_statistical_calculations(suggested_study_type, parameters)
         
+        # Add research intelligence to basic analyze study
+        research_failed = True
+        print(f"--- Research intelligence available: {RESEARCH_INTELLIGENCE_AVAILABLE} ---")
+        if RESEARCH_INTELLIGENCE_AVAILABLE and llm_response_data:
+            try:
+                print(f"--- Fetching real citations for basic analysis: {item.study_description[:50]}... ---")
+                research_engine = get_research_engine()
+                if not research_engine:
+                    raise Exception("Research intelligence not available")
+                research_summary = await research_engine.analyze_research_topic(
+                    item.study_description,
+                    max_papers=item.max_papers or 5,
+                    pubmed_papers=item.pubmed_papers,
+                    arxiv_papers=item.arxiv_papers,
+                    clinicaltrials_papers=item.clinicaltrials_papers
+                )
+                print(f"--- Research summary completed. Papers found: {len(research_summary.papers_analyzed) if research_summary else 0} ---")
+                
+                # Replace generic references with real citations
+                if research_summary and research_summary.papers_analyzed:
+                    print(f"--- Processing {len(research_summary.papers_analyzed)} papers for citations ---")
+                    real_references = []
+                    # Use all papers found - no artificial limit
+                    max_refs = len(research_summary.papers_analyzed)
+                    for i, paper in enumerate(research_summary.papers_analyzed[:max_refs]):
+                        try:
+                            if paper.title:
+                                # Handle ClinicalTrials.gov data differently
+                                if 'ClinicalTrials.gov' in (paper.journal or ''):
+                                    citation = f"**{paper.title}**"
+                                    if paper.sample_size:
+                                        citation += f" (N={paper.sample_size})"
+                                    if paper.url:
+                                        citation += f" [ClinicalTrials.gov]({paper.url})"
+                                    else:
+                                        citation += " [ClinicalTrials.gov]"
+                                else:
+                                    # Regular papers
+                                    authors_str = ", ".join(paper.authors[:2]) if paper.authors else "Authors N/A"
+                                    if len(paper.authors) > 2:
+                                        authors_str += " et al."
+                                    
+                                    citation = f"**{paper.title}** {authors_str} ({paper.year}). *{paper.journal}*"
+                                    if paper.url:
+                                        citation += f" [View paper]({paper.url})"
+                                
+                                real_references.append(citation)
+                        except Exception as cite_error:
+                            print(f"--- Error processing citation {i+1}: {cite_error} ---")
+                            continue
+                    
+                    if real_references:
+                        validated_data['references'] = real_references
+                        # Count papers by source - improved detection
+                        pubmed_count = len([p for p in research_summary.papers_analyzed if 
+                                          (p.pmid is not None) or 
+                                          ('pubmed' in (p.url or '').lower()) or
+                                          ('ncbi.nlm.nih.gov' in (p.url or '').lower())])
+                        arxiv_count = len([p for p in research_summary.papers_analyzed if 
+                                         (p.arxiv_id is not None) or
+                                         ('arxiv' in (p.journal or '').lower()) or
+                                         ('arxiv.org' in (p.url or '').lower())])
+                        clinical_count = len([p for p in research_summary.papers_analyzed if 
+                                            ('clinicaltrials.gov' in (p.journal or '').lower()) or
+                                            ('clinicaltrials.gov' in (p.url or '').lower())])
+                        source_breakdown = f"pubmed({pubmed_count}), arxiv({arxiv_count}), clinicaltrials({clinical_count})"
+                        validated_data['references_source'] = source_breakdown
+                        print(f"--- Enhanced with {len(real_references)} real citations: {source_breakdown} ---")
+                        research_failed = False
+                    else:
+                        research_failed = True
+                else:
+                    research_failed = True
+            except Exception as research_error:
+                print(f"--- Research intelligence failed: {research_error} ---")
+                import traceback
+                traceback.print_exc()
+                research_failed = True
+        else:
+            research_failed = True
+            
+        # Remove AI-generated references if research failed - only show real research
+        if research_failed and llm_response_data:
+            validated_data['references'] = []
+            validated_data['references_source'] = 'search_failed'
+            validated_data['references_warning'] = '⚠️ No research papers found from PubMed/arXiv search. Try different keywords.'
+        
         return StatisticalAnalysisOutput(
             suggested_study_type=validated_data['suggested_study_type'],
             rationale=validated_data['rationale'],
@@ -1344,10 +1488,15 @@ async def analyze_scenarios(item: EnhancedIdeaInput):
         if RESEARCH_INTELLIGENCE_AVAILABLE and llm_response_data:
             try:
                 print(f"--- Fetching real citations for: {item.study_description[:50]}... ---")
-                research_engine = ResearchIntelligenceEngine()
+                research_engine = get_research_engine()
+                if not research_engine:
+                    raise Exception("Research intelligence not available")
                 research_summary = await research_engine.analyze_research_topic(
                     item.study_description,
-                    max_papers=item.max_papers or 5
+                    max_papers=item.max_papers or 5,
+                    pubmed_papers=item.pubmed_papers,
+                    arxiv_papers=item.arxiv_papers,
+                    clinicaltrials_papers=item.clinicaltrials_papers
                 )
                 print(f"--- Research summary completed. Papers found: {len(research_summary.papers_analyzed) if research_summary else 0} ---")
                 
@@ -1355,8 +1504,8 @@ async def analyze_scenarios(item: EnhancedIdeaInput):
                 if research_summary and research_summary.papers_analyzed:
                     print(f"--- Processing {len(research_summary.papers_analyzed)} papers for citations ---")
                     real_references = []
-                    # Use all papers found, up to max_papers requested
-                    max_refs = min(len(research_summary.papers_analyzed), item.max_papers or 5)
+                    # Use all papers found - no artificial limit
+                    max_refs = len(research_summary.papers_analyzed)
                     for i, paper in enumerate(research_summary.papers_analyzed[:max_refs]):
                         try:
                             if paper.title:
@@ -1404,7 +1553,34 @@ async def analyze_scenarios(item: EnhancedIdeaInput):
                     
                     if real_references:
                         llm_response_data['references'] = real_references
-                        llm_response_data['references_source'] = 'pubmed_arxiv_clinicaltrials'
+                        # Count papers by source - improved detection
+                        pubmed_count = len([p for p in research_summary.papers_analyzed if 
+                                          (p.pmid is not None) or 
+                                          ('pubmed' in (p.url or '').lower()) or
+                                          ('ncbi.nlm.nih.gov' in (p.url or '').lower())])
+                        arxiv_count = len([p for p in research_summary.papers_analyzed if 
+                                         (p.arxiv_id is not None) or
+                                         ('arxiv' in (p.journal or '').lower()) or
+                                         ('arxiv.org' in (p.url or '').lower())])
+                        clinical_count = len([p for p in research_summary.papers_analyzed if 
+                                            ('clinicaltrials.gov' in (p.journal or '').lower()) or
+                                            ('clinicaltrials.gov' in (p.url or '').lower())])
+                        source_breakdown = f"pubmed({pubmed_count}), arxiv({arxiv_count}), clinicaltrials({clinical_count})"
+                        llm_response_data['references_source'] = source_breakdown
+                        # Add structured research data for table view
+                        llm_response_data['research_papers_data'] = [
+                            {
+                                'title': paper.title,
+                                'authors': paper.authors,
+                                'journal': paper.journal,
+                                'year': paper.year,
+                                'sample_size': paper.sample_size,
+                                'url': paper.url,
+                                'abstract': paper.abstract[:200] + '...' if paper.abstract and len(paper.abstract) > 200 else paper.abstract,
+                                'study_signal': paper.study_signal
+                            }
+                            for paper in research_summary.papers_analyzed
+                        ]
                         print(f"--- Enhanced with {len(real_references)} real citations ---")
                     else:
                         research_failed = True
@@ -1438,6 +1614,7 @@ async def analyze_scenarios(item: EnhancedIdeaInput):
             references=llm_response_data.get('references'),
             references_source=llm_response_data.get('references_source'),
             references_warning=llm_response_data.get('references_warning'),
+            research_papers_data=llm_response_data.get('research_papers_data'),
             processed_idea=item.study_description,
             llm_provider_used=provider_used
         )

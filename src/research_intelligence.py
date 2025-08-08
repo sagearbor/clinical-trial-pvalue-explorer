@@ -60,6 +60,9 @@ class ResearchPaper:
     is_meta_analysis: bool = False
     is_systematic_review: bool = False
     quality_score: float = 0.0  # 0-10 scale
+    
+    # Study outcomes
+    study_signal: str = "Unknown"  # "Positive", "Negative", "Mixed", "Unclear", "Unknown"
 
 @dataclass 
 class ResearchSummary:
@@ -298,11 +301,13 @@ class ArXivSearcher:
         Returns:
             List of paper metadata dictionaries
         """
-        # Focus on relevant categories for clinical research
-        categories = ['q-bio', 'stat', 'cs.LG', 'math.ST']
+        # Focus on relevant categories for clinical research - more restrictive
+        categories = ['q-bio.QM', 'q-bio.PE', 'q-bio.TO', 'stat.AP']  # Quantitative Methods, Populations and Evolution, Tissues and Organs, Applications
         category_filter = ' OR '.join([f'cat:{cat}' for cat in categories])
         
-        enhanced_query = f"({query}) AND ({category_filter})"
+        # Add medical keywords to filter
+        medical_filter = 'clinical OR medical OR health OR intervention OR trial OR study'
+        enhanced_query = f"({query}) AND ({category_filter}) AND ({medical_filter})"
         
         params = {
             'search_query': enhanced_query,
@@ -606,8 +611,163 @@ class ResearchIntelligenceEngine:
         self.pubmed_searcher = PubMedSearcher()
         self.arxiv_searcher = ArXivSearcher()
         self.clinicaltrials_searcher = ClinicalTrialsSearcher()
+    
+    def _enhance_query_for_clinical_research(self, query: str) -> str:
+        """
+        Enhance search query to be more targeted for clinical/medical research.
+        Extract key medical terms and add relevant MeSH-like keywords.
+        """
+        import re
         
-    async def analyze_research_topic(self, query: str, max_papers: int = 30) -> ResearchSummary:
+        # Convert to lowercase for processing
+        query_lower = query.lower()
+        
+        # Medical/clinical keywords that should be preserved and emphasized
+        clinical_terms = {
+            'obesity': ['obesity', 'overweight', 'BMI', 'weight loss', 'body mass index'],
+            'diet': ['diet', 'dietary', 'nutrition', 'nutritional', 'food intake'],
+            'smartphone': ['smartphone', 'mobile app', 'digital health', 'mHealth', 'mobile intervention'],
+            'reminder': ['reminder', 'notification', 'prompt', 'behavioral intervention'],
+            'epigenetic': ['epigenetic', 'DNA methylation', 'gene expression'],
+            'diabetes': ['diabetes', 'diabetic', 'glucose', 'insulin', 'glycemic'],
+            'hypertension': ['hypertension', 'blood pressure', 'cardiovascular'],
+            'intervention': ['intervention', 'treatment', 'therapy', 'program'],
+            'randomized': ['randomized', 'RCT', 'controlled trial', 'clinical trial'],
+            'pre-post': ['pre-post', 'before-after', 'longitudinal', 'prospective'],
+            'control': ['control group', 'comparison', 'placebo']
+        }
+        
+        # Find relevant clinical terms in the query
+        found_terms = []
+        for main_term, related_terms in clinical_terms.items():
+            if any(term in query_lower for term in related_terms):
+                found_terms.extend(related_terms[:2])  # Add top 2 related terms
+        
+        # Create enhanced query
+        if found_terms:
+            # Use the most relevant terms
+            core_terms = ' '.join(found_terms[:4])  # Limit to avoid overly complex queries
+            enhanced = f"{core_terms} clinical trial OR intervention OR study"
+        else:
+            # Fallback: add general clinical research terms
+            enhanced = f"{query} clinical trial OR intervention OR randomized OR study"
+        
+        return enhanced
+    
+    def _extract_sample_size_from_text(self, text: str) -> int:
+        """
+        Extract sample size from abstract or title text using regex patterns.
+        """
+        if not text:
+            return None
+            
+        # Common patterns for sample size mentions
+        patterns = [
+            r'[Nn]\s*=\s*(\d+)',  # N=123
+            r'[Nn]\s*:\s*(\d+)',  # N: 123  
+            r'(\d+)\s+participants?',  # 123 participants
+            r'(\d+)\s+subjects?',  # 123 subjects
+            r'(\d+)\s+patients?',  # 123 patients
+            r'(\d+)\s+individuals?',  # 123 individuals
+            r'sample\s+of\s+(\d+)',  # sample of 123
+            r'cohort\s+of\s+(\d+)',  # cohort of 123
+            r'enrolled\s+(\d+)',  # enrolled 123
+            r'recruited\s+(\d+)',  # recruited 123
+            r'total\s+of\s+(\d+)\s+(?:participants?|subjects?|patients?)',  # total of 123 participants
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches:
+                # Get the first match and convert to int
+                try:
+                    sample_size = int(matches[0])
+                    # Sanity check: reasonable sample size for clinical research
+                    if 5 <= sample_size <= 100000:  # Between 5 and 100k participants
+                        return sample_size
+                except ValueError:
+                    continue
+                    
+        return None
+    
+    def _detect_study_signal(self, title: str, abstract: str) -> str:
+        """
+        Detect whether a study found positive, negative, or mixed results.
+        Important for identifying underpowered studies with null results.
+        """
+        text = (title + ' ' + abstract).lower() if title and abstract else ''
+        if not text:
+            return "Unknown"
+        
+        # Positive signal indicators
+        positive_patterns = [
+            r'significant\s+(?:improvement|reduction|decrease|effect|association|difference)',
+            r'effective\s+(?:intervention|treatment|approach)',
+            r'reduced\s+(?:bmi|weight|obesity|symptoms)',
+            r'improved\s+(?:outcomes|health|weight\s+loss)',
+            r'beneficial\s+effect',
+            r'positive\s+(?:effect|association|outcome)',
+            r'successfully\s+(?:reduced|improved|treated)',
+            r'significant\s+weight\s+loss',
+            r'statistically\s+significant.*(?:p\s*[<≤]\s*0\.05)',
+            r'p\s*[<≤]\s*0\.0[0-5]',
+            r'strongly\s+associated',
+            r'dose[\-\s]response\s+relationship'
+        ]
+        
+        # Negative signal indicators  
+        negative_patterns = [
+            r'no\s+significant\s+(?:difference|effect|improvement|association|change)',
+            r'not\s+significant',
+            r'failed\s+to\s+(?:show|demonstrate|find)',
+            r'no\s+evidence\s+of',
+            r'did\s+not\s+(?:show|demonstrate|result\s+in)',
+            r'non[\-\s]significant',
+            r'p\s*[>≥]\s*0\.05',
+            r'null\s+(?:result|finding|effect)',
+            r'inconclusive\s+(?:results|evidence)',
+            r'no\s+(?:effect|impact|change|improvement)',
+            r'unsuccessful\s+(?:intervention|treatment)',
+            r'ineffective\s+(?:treatment|intervention)'
+        ]
+        
+        # Mixed/qualified results indicators
+        mixed_patterns = [
+            r'modest\s+(?:improvement|effect|reduction)',
+            r'limited\s+(?:evidence|effect|improvement)',
+            r'mixed\s+(?:results|findings|evidence)',
+            r'some\s+evidence',
+            r'borderline\s+significant',
+            r'trend\s+toward',
+            r'marginally\s+significant',
+            r'weak\s+(?:association|evidence)',
+            r'inconsistent\s+(?:results|findings)'
+        ]
+        
+        # Count matches for each category
+        import re
+        positive_count = sum(1 for pattern in positive_patterns if re.search(pattern, text))
+        negative_count = sum(1 for pattern in negative_patterns if re.search(pattern, text))
+        mixed_count = sum(1 for pattern in mixed_patterns if re.search(pattern, text))
+        
+        # Determine signal based on strongest pattern match
+        if positive_count > negative_count and positive_count > mixed_count:
+            return "Positive"
+        elif negative_count > positive_count and negative_count > mixed_count:
+            return "Negative" 
+        elif mixed_count > 0:
+            return "Mixed"
+        else:
+            return "Unclear"
+        
+    async def analyze_research_topic(
+        self, 
+        query: str, 
+        max_papers: int = 30,
+        pubmed_papers: int = None,
+        arxiv_papers: int = None, 
+        clinicaltrials_papers: int = None
+    ) -> ResearchSummary:
         """
         Perform comprehensive research analysis for a given topic.
         
@@ -620,17 +780,24 @@ class ResearchIntelligenceEngine:
         """
         logger.info(f"Starting research analysis for: {query}")
         
-        # Distribute paper allocation across sources more effectively
-        # PubMed gets 40%, ClinicalTrials gets 30%, arXiv gets 30%
-        pubmed_papers = int(max_papers * 0.4)
-        clinicaltrials_papers = int(max_papers * 0.3)
-        arxiv_papers = max_papers - pubmed_papers - clinicaltrials_papers
+        # Enhance query for better medical/clinical relevance
+        enhanced_query = self._enhance_query_for_clinical_research(query)
+        logger.info(f"Enhanced query: {enhanced_query}")
         
-        # Search multiple databases in parallel
+        # Use specific counts if provided, otherwise distribute intelligently
+        if pubmed_papers is None or arxiv_papers is None or clinicaltrials_papers is None:
+            # Default distribution: PubMed gets 40%, ClinicalTrials gets 30%, arXiv gets 30%
+            pubmed_papers = pubmed_papers or int(max_papers * 0.4)
+            clinicaltrials_papers = clinicaltrials_papers or int(max_papers * 0.3) 
+            arxiv_papers = arxiv_papers or (max_papers - pubmed_papers - clinicaltrials_papers)
+        
+        logger.info(f"Paper allocation: PubMed={pubmed_papers}, arXiv={arxiv_papers}, ClinicalTrials={clinicaltrials_papers}")
+        
+        # Search multiple databases in parallel with enhanced query
         search_tasks = [
-            self.pubmed_searcher.search_papers(query, pubmed_papers),
-            self.clinicaltrials_searcher.search_trials(query, clinicaltrials_papers),
-            self.arxiv_searcher.search_papers(query, arxiv_papers)
+            self.pubmed_searcher.search_papers(enhanced_query, pubmed_papers),
+            self.clinicaltrials_searcher.search_trials(enhanced_query, clinicaltrials_papers),
+            self.arxiv_searcher.search_papers(enhanced_query, arxiv_papers)
         ]
         
         try:
@@ -671,6 +838,9 @@ class ResearchIntelligenceEngine:
             if paper_dict.get('primary_outcome'):
                 abstract += f"\nPrimary Outcome: {paper_dict.get('primary_outcome')}"
             
+            # Detect study signal for clinical trials too
+            study_signal = self._detect_study_signal(paper_dict.get('title', ''), abstract)
+            
             return ResearchPaper(
                 title=paper_dict.get('title', ''),
                 authors=[],  # Clinical trials don't have traditional authors
@@ -682,20 +852,31 @@ class ResearchIntelligenceEngine:
                 # Store trial-specific data
                 study_design=paper_dict.get('allocation', 'Unknown'),
                 intervention_type=paper_dict.get('intervention', ''),
-                outcome_measure=paper_dict.get('primary_outcome', '')
+                outcome_measure=paper_dict.get('primary_outcome', ''),
+                study_signal=study_signal
             )
         else:
             # Handle regular papers (PubMed, arXiv)
+            abstract = paper_dict.get('abstract', '')
+            
+            # Extract sample size from abstract if available
+            sample_size = self._extract_sample_size_from_text(abstract + ' ' + paper_dict.get('title', ''))
+            
+            # Detect study signal/effect
+            study_signal = self._detect_study_signal(paper_dict.get('title', ''), abstract)
+            
             return ResearchPaper(
                 title=paper_dict.get('title', ''),
                 authors=paper_dict.get('authors', []),
-                abstract=paper_dict.get('abstract', ''),
+                abstract=abstract,
                 journal=paper_dict.get('journal', ''),
                 year=paper_dict.get('year', datetime.now().year),
                 pmid=paper_dict.get('pmid'),
                 doi=paper_dict.get('doi'),
                 arxiv_id=paper_dict.get('arxiv_id'),
-                url=paper_dict.get('url')
+                url=paper_dict.get('url'),
+                sample_size=sample_size,
+                study_signal=study_signal
             )
     
     def _create_empty_summary(self, query: str) -> ResearchSummary:

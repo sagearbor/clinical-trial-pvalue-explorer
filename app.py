@@ -13,6 +13,8 @@ import os
 sys.path.insert(0, 'src')
 from statistical_utils import calculate_p_value_from_N_d, calculate_power_from_N_d
 
+# Research intelligence is now loaded in background by the API backend
+
 # Configuration for the FastAPI backend URLs
 # Assumes FastAPI is running on localhost:8000
 BASE_URL = "http://localhost:8000"
@@ -93,13 +95,15 @@ if 'selected_scenario' not in st.session_state:
     st.session_state.selected_scenario = None
 if 'scenario_analysis_complete' not in st.session_state:
     st.session_state.scenario_analysis_complete = False
+if 'selected_llm_provider' not in st.session_state:
+    st.session_state.selected_llm_provider = None
 
 
 # Helper functions for enhanced features
 def fetch_available_tests():
     """Fetch available statistical tests from API"""
     try:
-        response = requests.get(AVAILABLE_TESTS_URL, timeout=10)
+        response = requests.get(AVAILABLE_TESTS_URL, timeout=60)
         if response.status_code == 200:
             data = response.json()
             return data.get('enhanced_test_info', []), data.get('available_tests', [])
@@ -252,10 +256,18 @@ def format_test_results(test_type, results):
 def call_multi_scenario_analysis(study_description: str, llm_provider: str = None):
     """Call the multi-scenario analysis endpoint"""
     max_papers = st.session_state.get('max_papers', 5)
+    # Get individual source counts from session state
+    pubmed_count = getattr(st.session_state, 'pubmed_papers', 3)
+    arxiv_count = getattr(st.session_state, 'arxiv_papers', 2) 
+    clinicaltrials_count = getattr(st.session_state, 'clinicaltrials_papers', 3)
+    
     payload = {
         "study_description": study_description.strip(),
         "llm_provider": llm_provider,
-        "max_papers": max_papers
+        "max_papers": max_papers,
+        "pubmed_papers": pubmed_count,
+        "arxiv_papers": arxiv_count,
+        "clinicaltrials_papers": clinicaltrials_count
     }
     
     try:
@@ -415,6 +427,14 @@ def create_power_curves_comparison(scenarios: dict, recommended_scenario: str = 
     }
     
     for name, scenario in scenarios.items():
+        # Debug: Check what type of data we're getting
+        print(f"Debug: Scenario {name} type: {type(scenario)}")
+        if isinstance(scenario, dict):
+            print(f"Debug: Scenario {name} keys: {list(scenario.keys())}")
+        else:
+            print(f"Debug: Scenario {name} value: {scenario}")
+            continue  # Skip non-dict scenarios
+        
         if isinstance(scenario, dict) and 'parameters' in scenario:
             params = scenario['parameters']
             effect_size = params.get('effect_size_value', 0.5)
@@ -478,16 +498,62 @@ with st.sidebar:
     
     # Research Intelligence Settings
     with st.expander("🔬 Research Intelligence"):
-        max_papers = st.slider(
-            "Max Papers to Fetch",
-            min_value=1,
-            max_value=50,
-            value=5,
-            help="Number of research papers to fetch from PubMed, arXiv & ClinicalTrials.gov"
-        )
-        st.session_state.max_papers = max_papers
+        st.markdown("**Configure Research Sources**")
         
-        st.caption("Sources: PubMed, arXiv, ClinicalTrials.gov")
+        # PubMed row
+        st.markdown("**📚 PubMed** (Medical Literature)")
+        pubmed_papers = st.slider(
+            "Number of PubMed papers",
+            min_value=0,
+            max_value=20,
+            value=3,
+            help="Medical literature from peer-reviewed journals",
+            key="pubmed_slider"
+        )
+        
+        # arXiv row  
+        st.markdown("**🔬 arXiv** (Academic Preprints)")
+        arxiv_papers = st.slider(
+            "Number of arXiv papers", 
+            min_value=0,
+            max_value=20,
+            value=2,
+            help="Academic preprints and cutting-edge research",
+            key="arxiv_slider"
+        )
+        
+        # ClinicalTrials.gov row
+        st.markdown("**🏥 ClinicalTrials.gov** (Clinical Trials)")
+        clinicaltrials_papers = st.slider(
+            "Number of clinical trials",
+            min_value=0,
+            max_value=20, 
+            value=3,
+            help="Registered clinical trials with sample sizes and outcomes",
+            key="clinicaltrials_slider"
+        )
+        
+        # Calculate total and store in session state
+        total_papers = pubmed_papers + arxiv_papers + clinicaltrials_papers
+        st.session_state.max_papers = total_papers
+        st.session_state.pubmed_papers = pubmed_papers
+        st.session_state.arxiv_papers = arxiv_papers
+        st.session_state.clinicaltrials_papers = clinicaltrials_papers
+        
+        st.success(f"**Total: {total_papers} sources** selected")
+    
+    # LLM Provider Selection
+    with st.expander("🤖 AI Provider"):
+        llm_provider = st.selectbox(
+            "Select AI Provider:",
+            ["Default", "GEMINI", "OPENAI", "AZURE_OPENAI", "ANTHROPIC"],
+            help="Choose specific AI provider or use default system setting",
+            key="sidebar_llm_provider"
+        )
+        if llm_provider == "Default":
+            llm_provider = None
+        # Store in session state so it can be accessed later
+        st.session_state.selected_llm_provider = llm_provider
     
     # Collapsed About section
     with st.expander("ℹ️ About", expanded=False):
@@ -531,128 +597,305 @@ text_idea = st.text_area(
     help="Describe what you want to study, compare, or analyze. Be specific about your variables and groups."
 )
 
-# Optional LLM provider selection
-with st.expander("⚙️ Advanced Settings", expanded=False):
-    llm_provider = st.selectbox(
-        "Select AI Provider (optional):",
-        ["Default", "GEMINI", "OPENAI", "AZURE_OPENAI", "ANTHROPIC"],
-        help="Choose specific AI provider or use default system setting"
-    )
-    if llm_provider == "Default":
-        llm_provider = None
+# Get LLM provider from sidebar selection
+llm_provider = st.session_state.get('selected_llm_provider', None)
 
-if st.button("🔍 Analyze Study & Get AI Recommendations", key="analyze_study_button_v4", type="primary"):
+# Single combined button with literature search option
+col1, col2 = st.columns([0.8, 0.2])
+with col1:
+    analyze_button = st.button("🔍 Analyze Study & Get AI Recommendations", key="analyze_study_button_v5", type="primary")
+with col2:
+    lit_search_enabled = st.checkbox("📚 Literature Search", value=True, help="Include real research citations from PubMed, arXiv & ClinicalTrials.gov")
+
+# Store literature search state for later reference
+if 'lit_search_was_enabled' not in st.session_state:
+    st.session_state.lit_search_was_enabled = False
+
+if analyze_button:
+    # Store the lit search preference for display purposes
+    st.session_state.lit_search_was_enabled = lit_search_enabled
+    
     if not text_idea.strip():
         st.error("Please provide a research idea or study description.")
     else:
-        # Prepare enhanced payload for new API endpoint
-        payload = {
-            "study_description": text_idea.strip(),
-            "llm_provider": llm_provider
-        }
-        st.session_state.llm_provider_used = "" # Reset before new call
-        try:
-            with st.spinner("🤖 AI is analyzing your study and suggesting optimal statistical approaches..."):
-                response = requests.post(BACKEND_URL, json=payload, timeout=120) # Increased timeout for enhanced analysis
-            
-            if response.status_code == 200:
-                data = response.json()
-                st.session_state.llm_provider_used = data.get("llm_provider_used", "Unknown")
-                st.session_state.study_analysis = data
-
-                if data.get("error"):
-                    st.error(f"Error from AI analysis (Provider: {st.session_state.llm_provider_used}): {data['error']}")
-                    st.session_state.processed_idea_text = data.get("processed_idea", st.session_state.processed_idea_text)
-                    st.session_state.estimation_justification = ""
-                    st.session_state.references = []
-                else:
-                    # Store enhanced analysis results
-                    st.session_state.suggested_test_type = data.get("suggested_study_type", "two_sample_t_test")
-                    st.session_state.selected_test_type = st.session_state.suggested_test_type  # Default to AI suggestion
-                    
-                    # Store analysis results for display
-                    st.session_state.analysis_results = {
-                        'p_value': data.get('calculated_p_value'),
-                        'power': data.get('calculated_power'),
-                        'test_used': data.get('statistical_test_used'),
-                        'calculation_error': data.get('calculation_error')
-                    }
-                    
-                    # Store enhanced statistical results
-                    st.session_state.calculated_statistics = format_test_results(
-                        st.session_state.suggested_test_type, 
-                        data
-                    )
-                    
-                    # Backwards compatibility: extract basic parameters
-                    if data.get("initial_N") is not None and data.get("initial_cohens_d") is not None:
-                        st.session_state.initial_N = data["initial_N"]
-                        st.session_state.initial_cohens_d = data["initial_cohens_d"]
-                        st.session_state.current_N = data["initial_N"]
-                        st.session_state.current_d = data["initial_cohens_d"]
-                    
-                    st.session_state.estimation_justification = data.get("estimation_justification", data.get("rationale", "No justification provided by AI."))
-                    st.session_state.processed_idea_text = data.get("processed_idea", "Idea processed successfully.")
-                    st.session_state.references = data.get("references", [])
-                    st.session_state.test_parameters = data.get("parameters", {})
-                    
-                    st.success(f"✅ AI analysis complete! Suggested test: **{get_test_display_name(st.session_state.suggested_test_type)}** (Provider: {st.session_state.llm_provider_used})")
-            else:
-                st.error(f"Failed to get AI analysis from backend. Status code: {response.status_code}")
-                try:
-                    error_detail = response.json().get("detail", response.text)
-                    st.error(f"Details: {error_detail}")
-                except: 
-                    st.error(f"Details: {response.text}")
-                st.session_state.processed_idea_text = "Failed to process idea."
-                st.session_state.estimation_justification = ""
-                st.session_state.references = []
-                st.session_state.study_analysis = {}
-        except requests.exceptions.ConnectionError:
-            st.error("❌ Could not connect to the backend API. Is it running at " + BACKEND_URL + "?")
-        except requests.exceptions.Timeout:
-            st.error("⏱️ The request to the backend API timed out. The AI analysis might be taking too long or the server is busy.")
-        except Exception as e:
-            st.error(f"❌ An unexpected error occurred: {e}")
-            st.session_state.estimation_justification = ""
-            st.session_state.references = []
-            st.session_state.study_analysis = {}
-
-# === NEW: Multi-Scenario Analysis Button ===
-st.markdown("---")
-st.markdown('### 🔥 5 Stat Designs <span title="Generate 5 statistical design scenarios based on evidence uncertainty and power requirements">ℹ️</span>', unsafe_allow_html=True)
-
-col1, col2 = st.columns([1, 1])
-with col1:
-    if st.button("🔥 Generate Scenarios", key="multi_scenario_button", type="secondary"):
-        if not text_idea.strip():
-            st.error("Please provide a research idea or study description.")
-        else:
-            # Call multi-scenario analysis
+        if lit_search_enabled:
+            # Use multi-scenario analysis with literature search (full featured)
             scenario_data = call_multi_scenario_analysis(text_idea.strip(), llm_provider)
             
             if scenario_data:
-                # Store scenario data in session state
-                st.session_state.multi_scenarios = scenario_data.get('scenarios', {})
+                st.session_state.multi_scenario_data = scenario_data
                 st.session_state.evidence_quality = scenario_data.get('evidence_quality')
                 st.session_state.effect_size_uncertainty = scenario_data.get('effect_size_uncertainty')
                 st.session_state.recommended_scenario = scenario_data.get('recommended_scenario')
-                st.session_state.selected_scenario = scenario_data.get('recommended_scenario')  # Default to recommended
                 st.session_state.scenario_analysis_complete = True
-                st.session_state.suggested_test_type = scenario_data.get('suggested_study_type', 'two_sample_t_test')
-                st.session_state.selected_test_type = st.session_state.suggested_test_type
                 
-                # Store complete response data for references
-                st.session_state.multi_scenario_data = scenario_data
+                # Extract references from scenario data
+                st.session_state.references = scenario_data.get('references', [])
+                st.session_state.references_source = scenario_data.get('references_source', 'multi_scenario_search')
+                st.session_state.references_warning = scenario_data.get('references_warning')
                 
-                st.success(f"✅ Generated 5 scenarios! Recommended: **{scenario_data.get('recommended_scenario', 'Unknown').replace('_', ' ').title()}**")
+                # Extract scenarios for multi-scenario display
+                scenarios = scenario_data.get('scenarios', [])
+                if scenarios:
+                    # Debug: Check structure of scenarios from API
+                    st.write(f"Debug: API returned {len(scenarios)} scenarios")
+                    for i, scenario in enumerate(scenarios):
+                        st.write(f"Debug: Scenario {i+1} type: {type(scenario)}")
+                        if isinstance(scenario, dict):
+                            st.write(f"Debug: Scenario {i+1} keys: {list(scenario.keys())}")
+                        else:
+                            st.write(f"Debug: Scenario {i+1} value: {scenario}")
+                    
+                    # Handle different API response formats
+                    if all(isinstance(s, dict) for s in scenarios):
+                        # Expected format: scenarios are dictionaries
+                        st.session_state.multi_scenarios = {f"scenario_{i+1}": scenario for i, scenario in enumerate(scenarios)}
+                    elif all(isinstance(s, str) for s in scenarios):
+                        # Fallback: scenarios are strings, create basic structure
+                        st.info("ℹ️ Creating scenario structure from API response...")
+                        
+                        # Create basic scenario structure from names
+                        scenario_templates = {
+                            'exploratory': {'name': 'Exploratory', 'effect_size': 0.3, 'power': 0.6, 'description': 'Lower power, smaller effect'},
+                            'cautious': {'name': 'Cautious', 'effect_size': 0.4, 'power': 0.7, 'description': 'Conservative approach'},
+                            'standard': {'name': 'Standard', 'effect_size': 0.5, 'power': 0.8, 'description': 'Typical research standard'},
+                            'optimistic': {'name': 'Optimistic', 'effect_size': 0.6, 'power': 0.9, 'description': 'Higher effect expectation'},
+                            'minimum_viable': {'name': 'Minimum Viable', 'effect_size': 0.2, 'power': 0.5, 'description': 'Smallest detectable effect'}
+                        }
+                        
+                        multi_scenarios = {}
+                        for i, scenario_name in enumerate(scenarios):
+                            template = scenario_templates.get(scenario_name, {
+                                'name': scenario_name.title(), 
+                                'effect_size': 0.5, 
+                                'power': 0.8, 
+                                'description': f'{scenario_name.title()} scenario'
+                            })
+                            
+                            multi_scenarios[f"scenario_{i+1}"] = {
+                                'name': template['name'],
+                                'description': template['description'],
+                                'target_p_value': 0.05,
+                                'parameters': {
+                                    'total_n': int(100 / (template['effect_size'] ** 2)),  # Rough estimate
+                                    'effect_size_value': template['effect_size'],
+                                    'effect_size_type': 'cohens_d',
+                                    'alpha': 0.05,
+                                    'power': template['power']
+                                }
+                            }
+                        
+                        st.session_state.multi_scenarios = multi_scenarios
+                        st.success(f"✅ Created {len(multi_scenarios)} scenarios from API response")
+                    else:
+                        st.warning("⚠️ API returned scenarios in unexpected format - not storing for multi-scenario display")
+                        st.session_state.multi_scenarios = {}
+                
+                # Also populate the basic analysis fields for consistency
+                st.session_state.study_analysis = {
+                    'suggested_study_type': scenario_data.get('suggested_study_type'),
+                    'rationale': scenario_data.get('rationale'),
+                    'data_type': scenario_data.get('data_type'),
+                    'study_design': scenario_data.get('study_design'),
+                    'alternative_tests': scenario_data.get('alternative_tests', [])
+                }
+                st.session_state.llm_provider_used = scenario_data.get('llm_provider_used', 'Unknown')
+                
+                st.success(f"✅ Complete analysis with literature search finished! (Provider: {st.session_state.llm_provider_used})")
+            else:
+                st.error("❌ Failed to get complete analysis. Please try again.")
+        else:
+            # Use basic analysis without literature search (faster)
+            payload = {
+                "study_description": text_idea.strip(),
+                "llm_provider": llm_provider
+            }
+            st.session_state.llm_provider_used = "" # Reset before new call
+            try:
+                with st.spinner("🤖 AI is analyzing your study (no literature search)..."):
+                    response = requests.post(BACKEND_URL, json=payload, timeout=120)
+                
+                    if response.status_code == 200:
+                        data = response.json()
+                        st.session_state.llm_provider_used = data.get("llm_provider_used", "Unknown")
+                        st.session_state.study_analysis = data
 
-with col2:
-    if st.session_state.scenario_analysis_complete:
-        st.info(f"📊 **{len(st.session_state.multi_scenarios)} scenarios generated**\n\n🎯 **Evidence Quality:** {st.session_state.evidence_quality or 'Unknown'}\n\n⚡ **Recommended:** {st.session_state.recommended_scenario or 'Unknown'}")
+                        if data.get("error"):
+                            st.error(f"Error from AI analysis (Provider: {st.session_state.llm_provider_used}): {data['error']}")
+                            st.session_state.processed_idea_text = data.get("processed_idea", st.session_state.processed_idea_text)
+                            st.session_state.estimation_justification = ""
+                            st.session_state.references = []
+                        else:
+                            # Store enhanced analysis results
+                            st.session_state.suggested_test_type = data.get("suggested_study_type", "two_sample_t_test")
+                            st.session_state.selected_test_type = st.session_state.suggested_test_type  # Default to AI suggestion
+                            
+                            # Store analysis results for display
+                            st.session_state.analysis_results = {
+                                'p_value': data.get('calculated_p_value'),
+                                'power': data.get('calculated_power'),
+                                'test_used': data.get('statistical_test_used'),
+                                'calculation_error': data.get('calculation_error')
+                            }
+                            
+                            # Store enhanced statistical results
+                            st.session_state.calculated_statistics = format_test_results(
+                                st.session_state.suggested_test_type, 
+                                data
+                            )
+                            
+                            # Backwards compatibility: extract basic parameters
+                            if data.get("initial_N") is not None and data.get("initial_cohens_d") is not None:
+                                st.session_state.initial_N = data["initial_N"]
+                                st.session_state.initial_cohens_d = data["initial_cohens_d"]
+                                st.session_state.current_N = data["initial_N"]
+                                st.session_state.current_d = data["initial_cohens_d"]
+                            
+                            st.session_state.estimation_justification = data.get("estimation_justification", data.get("rationale", "No justification provided by AI."))
+                            st.session_state.processed_idea_text = data.get("processed_idea", "Idea processed successfully.")
+                            st.session_state.references = data.get("references", [])
+                            st.session_state.test_parameters = data.get("parameters", {})
+                            
+                            st.success(f"✅ AI analysis complete! Suggested test: **{get_test_display_name(st.session_state.suggested_test_type)}** (Provider: {st.session_state.llm_provider_used})")
+                    else:
+                        st.error(f"Failed to get AI analysis from backend. Status code: {response.status_code}")
+                        try:
+                            error_detail = response.json().get("detail", response.text)
+                            st.error(f"Details: {error_detail}")
+                        except: 
+                            st.error(f"Details: {response.text}")
+                        st.session_state.processed_idea_text = "Failed to process idea."
+                        st.session_state.estimation_justification = ""
+                        st.session_state.references = []
+                        st.session_state.study_analysis = {}
+            except requests.exceptions.ConnectionError:
+                st.error("❌ Could not connect to the backend API. Is it running at " + BACKEND_URL + "?")
+            except requests.exceptions.Timeout:
+                st.error("⏱️ The request to the backend API timed out. The AI analysis might be taking too long or the server is busy.")
+            except Exception as e:
+                st.error(f"❌ An unexpected error occurred: {e}")
+                st.session_state.estimation_justification = ""
+                st.session_state.references = []
+                st.session_state.study_analysis = {}
+
+# === Separate 5-Scenario Analysis Button ===
+if st.session_state.study_analysis:  # Only show after basic analysis is done
+    st.markdown("---")
+    st.subheader("🎲 Advanced Uncertainty Analysis")
+    
+    if st.button("🔍 Generate 5 Scenarios Analysis", key="generate_scenarios_button", type="secondary"):
+        if not text_idea.strip():
+            st.error("Please provide a research idea or study description.")
+        else:
+            with st.spinner("🔄 Running advanced uncertainty analysis with 5 scenarios..."):
+                try:
+                    # Use basic analysis without literature search for 5 scenarios
+                    payload = {
+                        "study_description": text_idea.strip(),
+                        "llm_provider": llm_provider,
+                        # Don't include literature search parameters - just uncertainty analysis
+                    }
+                    
+                    response = requests.post(MULTI_SCENARIO_URL, json=payload, timeout=120)
+                    
+                    if response.status_code == 200:
+                        scenario_data = response.json()
+                        
+                        if scenario_data and not scenario_data.get("error"):
+                            # Extract scenarios for display (independent of references)
+                            scenarios = scenario_data.get('scenarios', [])
+                            if scenarios:
+                                # Debug: Check structure of scenarios from 5-scenario API
+                                st.write(f"Debug: 5-Scenario API returned {len(scenarios)} scenarios")
+                                for i, scenario in enumerate(scenarios):
+                                    st.write(f"Debug: Scenario {i+1} type: {type(scenario)}")
+                                    if isinstance(scenario, dict):
+                                        st.write(f"Debug: Scenario {i+1} keys: {list(scenario.keys())}")
+                                    else:
+                                        st.write(f"Debug: Scenario {i+1} value: {scenario}")
+                                
+                                # Handle different API response formats
+                                if all(isinstance(s, dict) for s in scenarios):
+                                    # Expected format: scenarios are dictionaries
+                                    st.session_state.multi_scenarios = {f"scenario_{i+1}": scenario for i, scenario in enumerate(scenarios)}
+                                elif all(isinstance(s, str) for s in scenarios):
+                                    # Fallback: scenarios are strings, create basic structure
+                                    st.info("ℹ️ Creating scenario structure from 5-scenario API response...")
+                                    
+                                    # Create basic scenario structure from names (same as above)
+                                    scenario_templates = {
+                                        'exploratory': {'name': 'Exploratory', 'effect_size': 0.3, 'power': 0.6, 'description': 'Lower power, smaller effect'},
+                                        'cautious': {'name': 'Cautious', 'effect_size': 0.4, 'power': 0.7, 'description': 'Conservative approach'},
+                                        'standard': {'name': 'Standard', 'effect_size': 0.5, 'power': 0.8, 'description': 'Typical research standard'},
+                                        'optimistic': {'name': 'Optimistic', 'effect_size': 0.6, 'power': 0.9, 'description': 'Higher effect expectation'},
+                                        'minimum_viable': {'name': 'Minimum Viable', 'effect_size': 0.2, 'power': 0.5, 'description': 'Smallest detectable effect'}
+                                    }
+                                    
+                                    multi_scenarios = {}
+                                    for i, scenario_name in enumerate(scenarios):
+                                        template = scenario_templates.get(scenario_name, {
+                                            'name': scenario_name.title(), 
+                                            'effect_size': 0.5, 
+                                            'power': 0.8, 
+                                            'description': f'{scenario_name.title()} scenario'
+                                        })
+                                        
+                                        multi_scenarios[f"scenario_{i+1}"] = {
+                                            'name': template['name'],
+                                            'description': template['description'],
+                                            'target_p_value': 0.05,
+                                            'parameters': {
+                                                'total_n': int(100 / (template['effect_size'] ** 2)),  # Rough estimate
+                                                'effect_size_value': template['effect_size'],
+                                                'effect_size_type': 'cohens_d',
+                                                'alpha': 0.05,
+                                                'power': template['power']
+                                            }
+                                        }
+                                    
+                                    st.session_state.multi_scenarios = multi_scenarios
+                                else:
+                                    st.warning("⚠️ 5-Scenario API returned scenarios in unexpected format")
+                                    st.session_state.multi_scenarios = {}
+                                st.session_state.scenario_analysis_complete = True
+                                st.session_state.evidence_quality = scenario_data.get('evidence_quality')
+                                st.session_state.effect_size_uncertainty = scenario_data.get('effect_size_uncertainty')
+                                st.session_state.recommended_scenario = scenario_data.get('recommended_scenario', 'scenario_3')
+                                
+                                st.success("✅ **5 Scenarios Analysis completed!** Check the dashboard below.")
+                            else:
+                                st.warning("⚠️ No scenarios were generated in the analysis.")
+                        else:
+                            st.error(f"❌ Error from scenario analysis: {scenario_data.get('error', 'Unknown error')}")
+                    else:
+                        st.error("❌ Failed to generate scenario analysis.")
+                        
+                except requests.exceptions.ConnectionError:
+                    st.error("❌ Could not connect to the backend API. Is it running at " + BACKEND_URL + "?")
+                except requests.exceptions.Timeout:
+                    st.error("⏱️ The request to the backend API timed out. The scenario analysis might be taking too long.")
+                except Exception as e:
+                    st.error(f"❌ An unexpected error occurred: {e}")
+
+# === NEW: Multi-Scenario Analysis Button ===
+st.markdown("---")
+# Generate Scenarios section is now integrated into the main Analyze button above
 
 # === Multi-Scenario Display ===
+# Debug: Check if we have malformed scenario data
 if st.session_state.scenario_analysis_complete and st.session_state.multi_scenarios:
+    # Check if data is malformed
+    malformed_scenarios = [k for k, v in st.session_state.multi_scenarios.items() if not isinstance(v, dict)]
+    if malformed_scenarios:
+        st.error(f"🐛 **Debug**: Found malformed scenario data: {malformed_scenarios}")
+        st.write("Multi-scenarios data structure:")
+        st.write(st.session_state.multi_scenarios)
+        st.info("💡 Try clicking '🔍 Generate 5 Scenarios Analysis' button to regenerate proper scenario data.")
+
+# Only show if scenarios are properly structured
+if (st.session_state.scenario_analysis_complete and 
+    st.session_state.multi_scenarios and 
+    all(isinstance(v, dict) for v in st.session_state.multi_scenarios.values())):
     st.header("🎨 Multi-Scenario Statistical Design Dashboard")
     
     # Scenario selection dropdown
@@ -675,6 +918,14 @@ if st.session_state.scenario_analysis_complete and st.session_state.multi_scenar
     
     st.session_state.selected_scenario = scenario_options[selected_index]
     selected_scenario_data = st.session_state.multi_scenarios[st.session_state.selected_scenario]
+    
+    # Debug: Check data structure
+    st.write(f"Debug: selected_scenario_data type: {type(selected_scenario_data)}")
+    if isinstance(selected_scenario_data, dict):
+        st.write(f"Debug: scenario keys: {list(selected_scenario_data.keys())}")
+    else:
+        st.error(f"Error: Expected dictionary but got {type(selected_scenario_data)}: {selected_scenario_data}")
+        st.stop()
     
     # Display selected scenario details
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -724,15 +975,30 @@ if st.session_state.scenario_analysis_complete and st.session_state.multi_scenar
             st.warning("Unable to create comparison chart")
     
     with tab2:
-        power_curves_chart = create_power_curves_comparison(
-            st.session_state.multi_scenarios,
-            st.session_state.recommended_scenario  
-        )
-        if power_curves_chart:
-            st.plotly_chart(power_curves_chart, use_container_width=True)
-            st.markdown("**💡 How to read this chart:** Each line shows how statistical power increases with sample size for different scenarios. The **bold line** is the recommended scenario. Higher/thicker lines need fewer participants to achieve the same power.")
-        else:
-            st.warning("Unable to create power curves")
+        try:
+            # Debug: Check multi_scenarios structure
+            st.write(f"Debug: multi_scenarios type: {type(st.session_state.multi_scenarios)}")
+            if st.session_state.multi_scenarios:
+                for key, value in st.session_state.multi_scenarios.items():
+                    st.write(f"Debug: {key} -> type: {type(value)}")
+                    if isinstance(value, dict):
+                        st.write(f"Debug: {key} keys: {list(value.keys())}")
+                    else:
+                        st.write(f"Debug: {key} value: {str(value)[:100]}...")
+            
+            power_curves_chart = create_power_curves_comparison(
+                st.session_state.multi_scenarios,
+                st.session_state.recommended_scenario  
+            )
+            if power_curves_chart:
+                st.plotly_chart(power_curves_chart, use_container_width=True)
+                st.markdown("**💡 How to read this chart:** Each line shows how statistical power increases with sample size for different scenarios. The **bold line** is the recommended scenario. Higher/thicker lines need fewer participants to achieve the same power.")
+            else:
+                st.warning("Unable to create power curves")
+        except Exception as e:
+            st.error(f"Error creating power curves chart: {e}")
+            st.write("Multi-scenario data structure:")
+            st.write(st.session_state.multi_scenarios)
     
     # Update current parameters based on selected scenario
     if selected_scenario_data and 'parameters' in selected_scenario_data:
@@ -740,33 +1006,6 @@ if st.session_state.scenario_analysis_complete and st.session_state.multi_scenar
         st.session_state.current_N = scenario_params.get('total_n', st.session_state.current_N)
         st.session_state.current_d = scenario_params.get('effect_size_value', st.session_state.current_d)
     
-    # Display Research References
-    st.subheader("📚 Research References")
-    if hasattr(st.session_state, 'multi_scenario_data') and st.session_state.multi_scenario_data:
-        scenario_data = st.session_state.multi_scenario_data
-        references = scenario_data.get('references', [])
-        references_source = scenario_data.get('references_source', 'unknown')
-        references_warning = scenario_data.get('references_warning')
-        
-        if references_warning:
-            st.error(f"🚨 **{references_warning}**")
-        
-        if references:
-            if references_source == 'pubmed_arxiv_clinicaltrials':
-                st.success("✅ **Real Research Citations** (from PubMed, arXiv & ClinicalTrials.gov)")
-            elif references_source == 'pubmed_arxiv':
-                st.success("✅ **Real Research Citations** (from PubMed & arXiv)")
-            else:
-                st.warning("⚠️ **AI-Generated References** (research search failed)")
-                
-            for i, ref in enumerate(references, 1):
-                st.markdown(f"**{i}.** {ref}")
-        else:
-            st.info("No references available for this analysis.")
-    else:
-        st.info("References will appear after running multi-scenario analysis.")
-    
-    st.markdown("---")
 
 # === Enhanced Study Analysis Display ===
 if st.session_state.study_analysis:
@@ -836,15 +1075,200 @@ if st.session_state.study_analysis:
                     effect_type = parameters.get('effect_size_type', 'effect_size')
                     st.metric(f"Effect Size ({effect_type})", f"{effect_size_val:.3f}")
     
+    # === Research References Section ===
+    # Only show if literature search was enabled and references exist
+    if st.session_state.get('lit_search_was_enabled', False):
+        references = st.session_state.get('references', [])
+        
+        if references:
+            with st.expander("📚 Research References", expanded=False):
+                references_source = getattr(st.session_state, 'references_source', 'basic_search')
+                references_warning = getattr(st.session_state, 'references_warning', None)
+                
+                # Debug info
+                st.write(f"Debug: Found {len(references)} references, source: {references_source}")
+                
+                if references_warning:
+                    st.error(f"🚨 **{references_warning}**")
+                
+                if 'pubmed(' in references_source and 'arxiv(' in references_source:
+                    st.success(f"✅ **Real Research Citations** - Sources searched: {references_source}")
+                elif references_source == 'pubmed_arxiv_clinicaltrials':
+                    st.success("✅ **Real Research Citations** (from PubMed, arXiv & ClinicalTrials.gov)")
+                elif references_source == 'pubmed_arxiv':
+                    st.success("✅ **Real Research Citations** (from PubMed & arXiv)")
+                else:
+                    st.warning("⚠️ **AI-Generated References** (research search failed)")
+                
+                # View toggle buttons
+                col1, col2 = st.columns(2)
+                with col1:
+                    view_list = st.button("📄 List View", key="list_view_btn")
+                with col2:
+                    view_table = st.button("📊 Table View", key="table_view_btn") 
+                
+                # Default to list view, switch to table if requested
+                if view_table:
+                    st.session_state.reference_view = 'table'
+                elif view_list:
+                    st.session_state.reference_view = 'list'
+                
+                current_view = getattr(st.session_state, 'reference_view', 'list')
+                
+                if current_view == 'table':
+                    # Create table view with research data
+                    if hasattr(st.session_state, 'multi_scenario_data') and 'research_papers_data' in st.session_state.multi_scenario_data:
+                        papers_data = st.session_state.multi_scenario_data.get('research_papers_data', [])
+                        
+                        if papers_data:
+                            # Create DataFrame for table view
+                            table_data = []
+                            for paper in papers_data:
+                                # Calculate quality score based on available criteria
+                                quality_score = 0
+                                quality_factors = []
+                                
+                                # Check for study type indicators
+                                title_lower = (paper.get('title', '') or '').lower()
+                                journal = (paper.get('journal', '') or '').lower()
+                                
+                                if 'randomized' in title_lower or 'rct' in title_lower:
+                                    quality_score += 3
+                                    quality_factors.append("RCT")
+                                if 'meta-analysis' in title_lower:
+                                    quality_score += 4
+                                    quality_factors.append("Meta-analysis")
+                                if 'systematic review' in title_lower:
+                                    quality_score += 3
+                                    quality_factors.append("Systematic Review")
+                                if 'clinical trial' in title_lower:
+                                    quality_score += 2
+                                    quality_factors.append("Clinical Trial")
+                                if paper.get('sample_size') and paper.get('sample_size') > 100:
+                                    quality_score += 1
+                                    quality_factors.append("Large N")
+                                
+                                # Determine study type
+                                if 'clinicaltrials.gov' in journal:
+                                    study_type = "Clinical Trial"
+                                elif 'arxiv' in journal:
+                                    study_type = "Preprint"
+                                else:
+                                    study_type = "Published Research"
+                                
+                                # Format authors
+                                authors = paper.get('authors', []) or []
+                                if isinstance(authors, list) and authors:
+                                    author_str = ', '.join(authors[:2])
+                                    if len(authors) > 2:
+                                        author_str += ' et al.'
+                                else:
+                                    author_str = 'N/A'
+                                
+                                row = {
+                                    'Title': paper.get('title', 'N/A')[:60] + '...' if len(paper.get('title', '')) > 60 else paper.get('title', 'N/A'),
+                                    'Year': paper.get('year', 'N/A'),
+                                    'Authors': author_str,
+                                    'Journal': paper.get('journal', 'N/A')[:25] + '...' if len(paper.get('journal', '')) > 25 else paper.get('journal', 'N/A'),
+                                    'Sample Size': f"N={paper.get('sample_size')}" if paper.get('sample_size') else 'N/A',
+                                    'Study Signal': paper.get('study_signal', 'Unknown'),
+                                    'Type': study_type,
+                                    'Quality Score': f"{quality_score}/10",
+                                    'Quality Factors': ', '.join(quality_factors) if quality_factors else 'Standard',
+                                    'Link': paper.get('url', 'N/A')
+                                }
+                                table_data.append(row)
+                            
+                            # Create and display DataFrame
+                            df = pd.DataFrame(table_data)
+                            
+                            # Configure column display
+                            column_config = {
+                                "Link": st.column_config.LinkColumn(
+                                    "Link",
+                                    help="Click to view the original source",
+                                    validate="^https?://.*",
+                                    max_chars=100,
+                                    display_text="View"
+                                ),
+                                "Study Signal": st.column_config.SelectboxColumn(
+                                    "Study Signal",
+                                    help="Whether the study found positive, negative, or mixed results. Important for identifying underpowered studies with null results.",
+                                    width="small",
+                                    options=["Positive", "Negative", "Mixed", "Unclear", "Unknown"]
+                                ),
+                                "Quality Score": st.column_config.ProgressColumn(
+                                    "Quality Score",
+                                    help="Quality assessment based on study design, sample size, and methodology",
+                                    min_value=0,
+                                    max_value=10,
+                                    format="%d/10"
+                                ),
+                                "Quality Factors": st.column_config.TextColumn(
+                                    "Quality Factors",
+                                    help="Key quality indicators found in this study",
+                                    width="medium"
+                                )
+                            }
+                            
+                            st.dataframe(
+                                df, 
+                                use_container_width=True, 
+                                hide_index=True,
+                                column_config=column_config
+                            )
+                            
+                            st.caption(f"📊 **Quality Score Legend**: RCT (+3), Meta-analysis (+4), Systematic Review (+3), Clinical Trial (+2), Large Sample (+1)")
+                            st.caption(f"🎯 **Study Signal**: Shows whether studies found positive, negative, or mixed results - helps identify underpowered null studies")
+                        else:
+                            st.info("No structured research data available for table view")
+                    else:
+                        st.info("Research data not loaded yet. Run analysis to populate table view.")
+                else:
+                    # List view (default)
+                    for i, ref in enumerate(references, 1):
+                        st.markdown(f"**{i}.** {ref}")
+    
     st.markdown("---")
 
 # === Test Type Selection & Override ===
-st.header("3. 🛠️ Select & Configure Statistical Test")
+# Always show this section but in an accordion if analysis not run yet
+if st.session_state.study_analysis:
+    st.header("3. 🛠️ Select & Configure Statistical Test")
+    show_tests_directly = True
+else:
+    # Show in collapsed accordion when analysis not run yet
+    with st.expander("⚙️ Advanced: Manual Statistical Test Configuration (analysis not run yet)", expanded=False):
+        st.info("💡 **Tip**: Run 'Analyze Study' above first for AI-recommended test selection, or manually configure a test here if you prefer.")
+        show_tests_directly = True
 
-if st.session_state.available_tests:
-    test_options = [(test['test_id'], test['name']) for test in st.session_state.available_tests]
-    test_ids = [test_id for test_id, _ in test_options]
-    test_names = [name for _, name in test_options]
+# Load available tests without showing error messages when analysis not run
+if show_tests_directly:
+    # Fetch tests quietly
+    if not st.session_state.available_tests:
+        try:
+            enhanced_test_info, available_tests = fetch_available_tests()
+            if available_tests:
+                st.session_state.available_tests = available_tests
+            else:
+                # Fallback to default without showing error
+                st.session_state.available_tests = [{
+                    'test_id': 'two_sample_t_test',
+                    'name': 'Two-Sample t-Test',
+                    'description': 'Default test for comparing means between two groups'
+                }]
+        except:
+            # Fallback silently
+            st.session_state.available_tests = [{
+                'test_id': 'two_sample_t_test', 
+                'name': 'Two-Sample t-Test',
+                'description': 'Default test for comparing means between two groups'
+            }]
+
+    if st.session_state.available_tests:
+        test_options = [(test['test_id'], test['name']) for test in st.session_state.available_tests]
+        test_ids = [test_id for test_id, _ in test_options]
+        test_names = [name for _, name in test_options]
     
     # Test selection with AI suggestion highlighted
     current_index = 0
@@ -863,9 +1287,6 @@ if st.session_state.available_tests:
     
     if st.session_state.selected_test_type != st.session_state.suggested_test_type:
         st.info(f"🔄 You've overridden the AI suggestion. Using: **{test_names[selected_index]}**")
-else:
-    st.warning("⚠️ Unable to load available tests. Using default t-test.")
-    st.session_state.selected_test_type = "two_sample_t_test"
 
 if st.session_state.processed_idea_text:
     with st.expander("📜 View Processed Idea Sent to AI", expanded=False):
@@ -1352,35 +1773,37 @@ else:
     st.session_state.current_d = cohens_d_input
 
 
-p_val, msg = calculate_p_value_from_N_d(st.session_state.current_N, st.session_state.current_d)
-st.session_state.current_p_value = p_val
-st.session_state.p_value_message = msg
+# Only show calculations if analysis has been run
+if st.session_state.study_analysis:
+    p_val, msg = calculate_p_value_from_N_d(st.session_state.current_N, st.session_state.current_d)
+    st.session_state.current_p_value = p_val
+    st.session_state.p_value_message = msg
 
-st.header("3. Calculated P-Value")
-if st.session_state.p_value_message:
-    st.warning(st.session_state.p_value_message)
+    st.subheader("Calculated P-Value")
+    if st.session_state.p_value_message:
+        st.warning(st.session_state.p_value_message)
 
-if st.session_state.current_p_value is not None:
-    st.metric(label="Calculated P-Value", value=f"{st.session_state.current_p_value:.4f}")
-    if st.session_state.current_p_value < 0.05:
-        st.success("This p-value is typically considered statistically significant (p < 0.05).")
+    if st.session_state.current_p_value is not None:
+        st.metric(label="Calculated P-Value", value=f"{st.session_state.current_p_value:.4f}")
+        if st.session_state.current_p_value < 0.05:
+            st.success("This p-value is typically considered statistically significant (p < 0.05).")
+        else:
+            st.info("This p-value is not typically considered statistically significant (p >= 0.05).")
     else:
-        st.info("This p-value is not typically considered statistically significant (p >= 0.05).")
-else:
-    st.info("P-value will be calculated once valid parameters are set.")
+        st.info("P-value will be calculated once valid parameters are set.")
 
-# --- New Power / Probability Visualization ---
-power_val, power_msg = calculate_power_from_N_d(st.session_state.current_N, st.session_state.current_d)
+    # --- New Power / Probability Visualization ---
+    power_val, power_msg = calculate_power_from_N_d(st.session_state.current_N, st.session_state.current_d)
 
-st.header("4. Probability of Detecting the Effect")
-if power_msg:
-    st.warning(power_msg)
-elif power_val is not None:
-    st.metric(label="Estimated Power", value=f"{power_val*100:.1f}%")
-    st.progress(min(max(power_val, 0.0), 1.0))
-else:
-    st.info("Power will be calculated once valid parameters are set.")
+    st.subheader("Probability of Detecting the Effect")
+    if power_msg:
+        st.warning(power_msg)
+    elif power_val is not None:
+        st.metric(label="Estimated Power", value=f"{power_val*100:.1f}%")
+        st.progress(min(max(power_val, 0.0), 1.0))
+    else:
+        st.info("Power will be calculated once valid parameters are set.")
 
-st.markdown("---")
-st.caption("Remember: This tool is for educational and exploratory purposes. Always consult with a qualified statistician for actual clinical trial design and sample size calculations.")
+    st.markdown("---")
+    st.caption("Remember: This tool is for educational and exploratory purposes. Always consult with a qualified statistician for actual clinical trial design and sample size calculations.")
 
