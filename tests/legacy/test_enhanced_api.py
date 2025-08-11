@@ -55,7 +55,7 @@ def test_health_check():
         print(f"❌ Health check error: {e}")
         return False
 
-def test_enhanced_endpoint(idea_data):
+def enhanced_endpoint(idea_data):
     """Test the new enhanced analysis endpoint"""
     print(f"\n🧪 Testing Enhanced Endpoint: {idea_data['name']}")
     print(f"Research Idea: {idea_data['text_idea'][:100]}...")
@@ -114,7 +114,7 @@ def test_enhanced_endpoint(idea_data):
         print(f"❌ Enhanced endpoint error: {e}")
         return False
 
-def test_legacy_endpoint(idea_data):
+def legacy_endpoint(idea_data):
     """Test backwards compatibility with legacy endpoint"""
     print(f"\n🔄 Testing Legacy Compatibility: {idea_data['name']}")
     

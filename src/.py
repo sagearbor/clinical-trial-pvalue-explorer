@@ -1594,14 +1594,20 @@ def get_factory() -> StatisticalTestFactory:
 
 
 # Backwards compatibility functions
-from src.statistical_utils import validate_statistical_inputs as _validate_from_utils
-
 def validate_statistical_inputs(N_total: float, cohens_d: float) -> Optional[str]:
     """
-    Backwards-compatible wrapper that defers to src.statistical_utils for exact
-    validation behavior and error messages.
+    Validate inputs for statistical calculations (backwards compatibility).
+    
+    Args:
+        N_total: Total sample size
+        cohens_d: Cohen's d effect size
+        
+    Returns:
+        Error message if validation fails, None if inputs are valid
     """
-    return _validate_from_utils(N_total, cohens_d)
+    test = TwoSampleTTest()
+    is_valid, error_msg = test.validate_params(N_total=N_total, cohens_d=cohens_d)
+    return error_msg if not is_valid else None
 
 
 def calculate_p_value_from_N_d(N_total: float, cohens_d: float) -> Tuple[Optional[float], Optional[str]]:

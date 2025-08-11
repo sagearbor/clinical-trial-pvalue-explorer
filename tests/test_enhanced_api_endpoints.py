@@ -21,8 +21,8 @@ from typing import Dict, Any
 BASE_URL = "http://localhost:8000"
 HEADERS = {"Content-Type": "application/json"}
 
-def test_endpoint(endpoint: str, method: str = "GET", data: Dict[Any, Any] = None) -> Dict[Any, Any]:
-    """Test an API endpoint and return the response"""
+def call_endpoint(endpoint: str, method: str = "GET", data: Dict[Any, Any] = None) -> Dict[Any, Any]:
+    """Helper to call an API endpoint and return the response"""
     url = f"{BASE_URL}{endpoint}"
     
     try:
@@ -62,7 +62,7 @@ def test_endpoint(endpoint: str, method: str = "GET", data: Dict[Any, Any] = Non
 def test_health_check():
     """Test basic API health"""
     print("🔍 Testing API health check...")
-    result = test_endpoint("/health")
+    result = call_endpoint("/health")
     
     if result["success"]:
         print(f"✅ Health check passed - Provider: {result['data'].get('provider', 'unknown')}")
@@ -74,7 +74,7 @@ def test_health_check():
 def test_available_tests():
     """Test the enhanced /available_tests endpoint"""
     print("\n🔍 Testing /available_tests endpoint...")
-    result = test_endpoint("/available_tests")
+    result = call_endpoint("/available_tests")
     
     if not result["success"]:
         print(f"❌ Available tests failed: {result['error']}")
@@ -115,7 +115,7 @@ def test_enhanced_process_idea():
         "llm_provider": "gemini"
     }
     
-    result = test_endpoint("/process_idea", "POST", request_data)
+    result = call_endpoint("/process_idea", "POST", request_data)
     
     if not result["success"]:
         print(f"   ❌ Endpoint connection failed: {result['error']}")
@@ -213,7 +213,7 @@ def test_backwards_compatibility():
         "text_idea": "Compare effectiveness of two cancer treatments"
     }
     
-    result = test_endpoint("/analyze_study", "POST", legacy_data)
+    result = call_endpoint("/analyze_study", "POST", legacy_data)
     
     if result["success"]:
         print("✅ Legacy /analyze_study endpoint works")
