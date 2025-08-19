@@ -1,15 +1,15 @@
 {
   "name": "Clinical Trial P-Value Explorer",
-  "description": "This tool estimates participants for clinical trials and computes p-values.",
+  "description": "This tool helps estimate participants and effect size for clinical trials.",
   "technologies": [
     "Python",
+    "Streamlit",
     "FastAPI",
-    "Streamlit"
+    "LLM"
   ],
   "category": [
     "web-app",
-    "api",
-    "data-analysis"
+    "api"
   ],
   "status": "active",
   "language": [
@@ -18,8 +18,8 @@
   "hosted_url": null,
   "activity": {
     "commits_30d": 1,
-    "last_commit": "2025-08-07",
+    "last_commit": "2025-08-10",
     "contributors": 0,
-    "hotness_score": 32
+    "hotness_score": 22
   }
 }
