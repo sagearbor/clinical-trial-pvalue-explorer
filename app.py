@@ -21,7 +21,7 @@ except Exception:
     calculate_power_from_N_d = None
 
 # ---------------- Config ----------------
-BASE_URL = os.getenv("CTPE_BACKEND_URL", "http://localhost:8000")
+BASE_URL = os.getenv("CTPE_BACKEND_URL", "http://localhost:8123")
 URL_PROCESS = f"{BASE_URL}/process_idea"
 URL_AVAILABLE = f"{BASE_URL}/available_tests"
 URL_SCENARIOS = f"{BASE_URL}/analyze_scenarios"

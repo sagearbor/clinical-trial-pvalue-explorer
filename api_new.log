@@ -1,0 +1,51 @@
+INFO:     Will watch for changes in these directories: ['/dcri/sasusers/home/scb2/gitRepos/clinical-trial-pvalue-explorer']
+INFO:     Uvicorn running on http://127.0.0.1:8123 (Press CTRL+C to quit)
+INFO:     Started reloader process [269525] using WatchFiles
+INFO:     Started server process [269529]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'test_llm_api.py'. Reloading...
+INFO:     127.0.0.1:34272 - "POST /process_idea HTTP/1.1" 422 Unprocessable Entity
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [269529]
+INFO:     Started server process [269866]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'test_llm_correct.py'. Reloading...
+INFO:     127.0.0.1:48498 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [269866]
+INFO:     Started server process [270034]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [270034]
+INFO:     Started server process [272662]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'test_llm_system.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [272662]
+INFO:     Started server process [272875]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:56764 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56780 - "GET /available_tests HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56786 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56788 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56792 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36514 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36530 - "POST /analyze_scenarios HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36544 - "GET /available_tests HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43076 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43086 - "POST /analyze_scenarios HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43096 - "GET /available_tests HTTP/1.1" 404 Not Found

@@ -1,0 +1,41 @@
+# Frontend Dockerfile for Clinical Trial P-Value Explorer
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements/base.txt /app/requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app.py app_enhanced.py /app/
+COPY frontend/ /app/frontend/
+COPY backend/ /app/backend/
+COPY src/ /app/src/
+
+# Set Python path
+ENV PYTHONPATH=/app:$PYTHONPATH
+
+# Streamlit configuration
+RUN mkdir -p ~/.streamlit && \
+    echo "[server]\nheadless = true\nport = 8501\nenableCORS = false\n" > ~/.streamlit/config.toml
+
+# Expose port
+EXPOSE 8501
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+# Run the application
+CMD ["streamlit", "run", "app_enhanced.py", "--server.port=8501", "--server.address=0.0.0.0"]

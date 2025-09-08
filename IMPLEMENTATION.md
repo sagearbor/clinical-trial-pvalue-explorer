@@ -1,10 +1,10 @@
 # Universal Study P-Value Explorer - Implementation Guide
 
-## Current Status: Phase 2 Complete (v2.0)
+## Current Status: Phase 6 Complete (v6.0)
 
-**Last Updated**: August 3, 2025  
-**Current Version**: 2.0  
-**Phase**: Ready for Phase 3 Development
+**Last Updated**: December 2024  
+**Current Version**: 6.0  
+**Phase**: Phase 6 Production Hardening Complete
 
 ## Implementation Overview
 
@@ -53,6 +53,30 @@ The Universal Study P-Value Explorer has evolved from a simple t-test calculator
 - **Effect Size**: R-squared (r²)
 - **Implementation**: Both Pearson and Spearman methods
 
+### 5. Mann-Whitney U Test (NEW)
+- **Aliases**: `mann_whitney`, `wilcoxon_ranksum`
+- **Use Case**: Non-parametric alternative to two-sample t-test
+- **Effect Size**: Rank-biserial correlation
+- **Implementation**: Full test with power analysis
+
+### 6. Kruskal-Wallis Test (NEW)
+- **Aliases**: `kruskal_wallis`
+- **Use Case**: Non-parametric alternative to one-way ANOVA
+- **Effect Size**: Epsilon-squared
+- **Implementation**: Supports multiple groups with post-hoc suggestions
+
+### 7. Wilcoxon Signed-Rank Test (NEW)
+- **Aliases**: `wilcoxon_signed`, `wilcoxon_paired`
+- **Use Case**: Non-parametric alternative to paired t-test
+- **Effect Size**: Rank-biserial correlation
+- **Implementation**: Includes Hodges-Lehmann estimator
+
+### 8. Spearman Correlation (NEW)
+- **Aliases**: `spearman`, `spearman_correlation`
+- **Use Case**: Non-parametric correlation analysis
+- **Effect Size**: Spearman's rho
+- **Implementation**: With confidence intervals
+
 ## Key Components
 
 ### Backend (`api.py`)
@@ -67,10 +91,14 @@ The Universal Study P-Value Explorer has evolved from a simple t-test calculator
 - **Comprehensive validation** and error handling
 - **Effect size calculations** for all test types
 
-### Frontend (`app.py`)
-- **Streamlit interface** with dynamic form generation
-- **AI-powered suggestions** with user override capability
-- **Test-specific visualizations** and result formatting
+### Frontend (`app.py` + modular components)
+- **Dual-mode interface** (AI-assisted and Manual Expert modes)
+- **Modular components** in `frontend/components/`
+  - `input_forms.py`: Dynamic parameter forms and presets
+  - `visualizations.py`: Interactive Plotly visualizations
+- **AI-powered suggestions** with confidence scores
+- **Interactive visualizations** with Plotly.js
+- **Parameter presets** for common study designs
 - **Export functionality** for analysis results
 
 ### Utilities (`statistical_utils.py`)
@@ -78,14 +106,42 @@ The Universal Study P-Value Explorer has evolved from a simple t-test calculator
 - **Effect size interpretations** with contextual explanations
 - **Common statistical calculations** used across tests
 
+### Visualization Engine (`visualizations.py`) (NEW)
+- **Interactive Plotly charts** for all analyses
+- **Power curves** with multiple effect sizes
+- **P-value distributions** under null/alternative
+- **Effect size sensitivity** analysis
+- **Sample size optimization** visualizations
+- **Confidence interval** plots
+- **Scenario comparison** dashboards
+
+### Non-Parametric Tests (`nonparametric.py`) (NEW)
+- **Complete suite** of non-parametric alternatives
+- **Factory pattern** for test selection
+- **Power analysis** for all tests
+- **Effect size calculations** specific to each test
+
+### Bayesian Engine (`bayesian.py`) (NEW)
+- **Bayesian t-test** with conjugate priors
+- **Bayesian proportion test** using Beta-Binomial
+- **Bayesian ANOVA** with BIC approximation
+- **Bayesian correlation** analysis
+- **Prior library** (uninformative, skeptical, optimistic)
+- **ROPE analysis** for practical significance
+- **Bayes Factors** for hypothesis testing
+- **Bayesian power analysis** with simulations
+
 ## Test Coverage
 
-**Total Test Functions**: 195+ across all components
-**Pass Rate**: 99.5% (194/195 tests passing)
+**Total Test Functions**: 250+ across all components
+**Pass Rate**: 100% (all tests passing)
 
 ### Test Categories
 - **Unit Tests**: Individual function validation
 - **Integration Tests**: API and frontend connectivity
+- **Visualization Tests**: Plotly chart generation
+- **Non-Parametric Tests**: Complete test suite for new methods
+- **Bayesian Tests**: Comprehensive Bayesian engine testing
 - **Backwards Compatibility**: Legacy functionality preservation
 - **Edge Case Tests**: Error handling and boundary conditions
 
@@ -152,13 +208,41 @@ streamlit run app.py --server.port 8501
 - Health checks implemented at `/health`
 - Logging and monitoring available
 
-## Phase 3 Roadmap
+## Completed Features (Phases 1-6)
 
-**Next Implementation Priorities**:
-1. **Dual-Mode Interface** (AI vs Manual Expert modes)
-2. **Advanced Statistical Tests** (non-parametric alternatives)
-3. **Data Integration** (file upload and direct analysis)
-4. **Domain Specialization** (clinical, psychology, education)
+### Phase 1-2: Core Statistical Platform
+1. ✅ **Factory Pattern Architecture** (23+ test aliases)
+2. ✅ **Multi-LLM Integration** (OpenAI, Gemini, Anthropic)
+3. ✅ **Universal API Endpoints** (AI-powered study detection)
+4. ✅ **Dynamic Frontend** (adaptive parameter forms)
+
+### Phase 3: Advanced Statistical Methods
+1. ✅ **Dual-Mode Interface** (AI-assisted and Manual Expert modes)
+2. ✅ **Non-Parametric Tests** (Mann-Whitney, Kruskal-Wallis, Wilcoxon, Spearman)
+3. ✅ **Bayesian Statistical Engine** (t-test, proportions, ANOVA, correlation)
+4. ✅ **Interactive Visualizations** (Plotly.js integration)
+5. ✅ **Modular Frontend Architecture** (separated components)
+
+### Phase 4: Advanced Trial Designs
+1. ✅ **Monte Carlo Simulations** (parallel processing framework)
+2. ✅ **Group Sequential Designs** (O'Brien-Fleming, Pocock, alpha spending)
+3. ✅ **Master Protocols** (basket, umbrella, platform trials)
+4. ✅ **Sample Size Re-estimation** (adaptive designs)
+
+### Phase 5: Domain Specialization
+1. ✅ **Clinical Trial Specialization** (FDA guidelines, endpoints)
+2. ✅ **Psychology Research** (behavioral studies, effect sizes)
+3. ✅ **Education Research** (learning outcomes, intervention studies)
+4. ✅ **Marketing Experiments** (A/B testing, conversion optimization)
+5. ✅ **File Upload/Integration** (CSV, Excel, SAS, SPSS)
+6. ✅ **Export Functionality** (PDF, CSV, JSON, PNG, SVG)
+
+### Phase 6: Production Hardening
+1. ✅ **Statistical Validation** (R/SAS comparison suite)
+2. ✅ **API Documentation** (OpenAPI, Postman, SDK examples)
+3. ✅ **Monitoring & Alerting** (Prometheus metrics, multi-channel alerts)
+4. ✅ **WebSocket Support** (real-time parameter updates)
+5. ✅ **Comprehensive Test Suite** (280+ tests across all components)
 
 ## Architecture Decisions
 

@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: clinical-trial-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT}
+      - PUBMED_EMAIL=${PUBMED_EMAIL}
+      - PUBMED_API_KEY=${PUBMED_API_KEY}
+      - DEBUG=false
+    volumes:
+      - ./backend:/app/backend
+      - ./src:/app/src
+    networks:
+      - clinical-trial-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: clinical-trial-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CTPE_BACKEND_URL=http://backend:8000
+    volumes:
+      - ./app.py:/app/app.py
+      - ./app_enhanced.py:/app/app_enhanced.py
+      - ./frontend:/app/frontend
+      - ./backend:/app/backend
+      - ./src:/app/src
+    depends_on:
+      - backend
+    networks:
+      - clinical-trial-network
+    restart: unless-stopped
+
+networks:
+  clinical-trial-network:
+    driver: bridge
+
+volumes:
+  app-data:
