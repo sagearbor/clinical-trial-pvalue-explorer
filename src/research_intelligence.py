@@ -44,13 +44,36 @@ class ResearchSummary:
     temporal_trends: Optional[str] = None
 
 # ---------------- Common helpers ----------------
-_SAMPLE_RE = re.compile(r"\b[Nn]\s*=\s*(\d{2,6})\b")
+# Multiple patterns for sample size extraction
+_SAMPLE_PATTERNS = [
+    re.compile(r"\b[Nn]\s*=\s*(\d{2,6})\b"),  # N = 123
+    re.compile(r"\b(\d{2,6})\s*(?:patients?|participants?|subjects?|adults?|individuals?)\b", re.I),  # 123 patients
+    re.compile(r"\b(?:enrolled|included|recruited|randomized)\s*(\d{2,6})\b", re.I),  # enrolled 123
+    re.compile(r"\b(\d{2,6})\s*(?:were|was)\s*(?:enrolled|included|recruited|randomized)\b", re.I),  # 123 were enrolled
+    re.compile(r"\btotal\s*(?:of\s*)?(\d{2,6})\s*(?:patients?|participants?|subjects?)\b", re.I),  # total of 123 patients
+    re.compile(r"\bsample\s*size\s*(?:of\s*)?(\d{2,6})\b", re.I),  # sample size of 123
+]
 _POS_RE = re.compile(r"\b(significant|improv\w+|increase|decrease)\b", re.I)
 _NEG_RE = re.compile(r"\b(no\s+significan|null|non-?significant)\b", re.I)
 
 def _extract_sample_size(text: str) -> Optional[int]:
-    m = _SAMPLE_RE.search(text or "")
-    return int(m.group(1)) if m else None
+    """Extract sample size from text using multiple patterns."""
+    if not text:
+        return None
+    
+    # Try each pattern
+    for pattern in _SAMPLE_PATTERNS:
+        m = pattern.search(text)
+        if m:
+            try:
+                n = int(m.group(1))
+                # Sanity check - reasonable sample size range
+                if 10 <= n <= 100000:
+                    return n
+            except:
+                continue
+    
+    return None
 
 def _infer_signal(text: str) -> Optional[str]:
     t = (text or "").lower()
@@ -79,38 +102,125 @@ class PubMedSearcher:
         # Try multiple queries: primary combined query, then fallbacks if no results
         q_primary = self._enhance_query(idea, years_back)
         pmids = await self._search_pmids(q_primary, max_results)
+        
+        # Only use fallbacks if we got NO results (not just fewer than requested)
         if not pmids:
             # fallback 1: plain phrase in Title/Abstract
             q_fallback = f'({idea})[Title/Abstract]'
             pmids = await self._search_pmids(q_fallback, max_results)
+            
         if not pmids:
-            # fallback 2: broaden to Title/Abstract terms for synonyms
-            syn_clause = " OR ".join([f'"{s}"[Title/Abstract]' for s in ["app","mobile","mhealth","sms","text messaging"]])
-            pmids = await self._search_pmids(syn_clause, max_results)
+            # fallback 2: extract key terms from the idea and search for them
+            key_terms = self._extract_key_terms(idea)
+            if key_terms and len(key_terms) >= 2:  # Only if we have meaningful terms
+                # Use AND to ensure relevance, not OR
+                syn_clause = " AND ".join([f'({term})[Title/Abstract]' for term in key_terms[:3]])
+                pmids = await self._search_pmids(syn_clause, max_results)
+                
         if not pmids:
+            print(f"⚠️ PubMed: No relevant papers found for '{idea[:50]}...'")
             return []
-        return await self._fetch_details(pmids)
+            
+        # Fetch details and filter for relevance
+        papers = await self._fetch_details(pmids)
+        
+        # Basic relevance check - paper should mention at least one key term
+        if papers:
+            key_terms = self._extract_key_terms(idea)
+            if key_terms:
+                relevant_papers = []
+                for paper in papers:
+                    title_abstract = f"{paper.get('title', '')} {paper.get('abstract', '')}".lower()
+                    # Check if any key term appears
+                    matches = [term for term in key_terms if term.lower() in title_abstract]
+                    if matches:
+                        relevant_papers.append(paper)
+                    else:
+                        # Debug: show what was rejected
+                        print(f"   Rejected: {paper.get('title', '')[:60]}... (no match for: {key_terms})")
+                        
+                if relevant_papers:
+                    print(f"✅ PubMed: Found {len(relevant_papers)} relevant papers")
+                    return relevant_papers
+                else:
+                    print(f"⚠️ PubMed: Found {len(papers)} papers but none matched terms: {key_terms}")
+                    # Show first paper title for debugging
+                    if papers:
+                        print(f"   Example rejected: {papers[0].get('title', 'No title')[:80]}")
+                    return []
+        
+        return papers
 
     # Backwards-compatible method name expected by tests
     async def search_papers(self, idea: str, max_results: int = 10, years_back: int = 7) -> List[Dict[str, Any]]:
         return await self.search(idea, max_results=max_results, years_back=years_back)
 
+    def _extract_key_terms(self, idea: str) -> List[str]:
+        """Extract key medical/clinical terms from the query string."""
+        idea_lower = idea.lower()
+        found_terms = []
+        
+        # For hearing-related queries, add comprehensive hearing terms
+        if 'hearing' in idea_lower or 'deaf' in idea_lower or 'ear' in idea_lower:
+            found_terms.extend(['hearing', 'hearing aid', 'hearing device', 'deaf', 
+                              'presbycusis', 'auditory', 'cochlear'])
+            # Also keep specific terms from the query
+            if 'older' in idea_lower or 'elderly' in idea_lower:
+                found_terms.append('elderly')
+            if 'quality' in idea_lower and 'life' in idea_lower:
+                found_terms.append('quality of life')
+            if 'uptake' in idea_lower or 'adoption' in idea_lower:
+                found_terms.append('uptake')
+                
+        # Common clinical/medical terms to look for
+        medical_keywords = [
+            'diabetes', 'hypertension', 'cancer', 'cardiovascular', 'heart',
+            'blood pressure', 'glucose', 'insulin', 'metformin', 'statin',
+            'ace inhibitor', 'arb', 'cognitive', 'dementia', 'alzheimer', 
+            'parkinson', 'stroke', 'copd', 'asthma', 'obesity', 'bmi', 
+            'cholesterol', 'lipid', 'trial', 'therapy', 'treatment', 
+            'intervention', 'placebo', 'randomized', 'clinical'
+        ]
+        
+        # Find matching medical terms
+        for term in medical_keywords:
+            if term in idea_lower:
+                found_terms.append(term)
+                    
+        # Return unique terms
+        return list(set(found_terms)) if found_terms else []
+    
     def _enhance_query(self, idea: str, years_back: int) -> str:
-        # Build multiple queries (MeSH-ish expansion + synonyms + plain text) and return a combined OR string
+        # Build query based on the actual idea content
         year = datetime.now().year
         start = year - years_back
-        # Basic synonyms
-        synonyms = ["app", "mobile app", "smartphone app", "text messaging", "sms", "mhealth", "mobile health"]
-        syn_clause = " OR ".join([f'"{s}"[Title/Abstract]' for s in synonyms])
-        # MeSH-like candidates (common terms) - keep small and rule-based
-        mesh_terms = ["Mobile Applications", "Text Messaging", "Telemedicine", "mHealth"]
-        mesh_clause = " OR ".join([f'"{m}"[MeSH Terms]' for m in mesh_terms])
-        # Plain idea phrase
-        idea_clause = f'({idea})[Title/Abstract]'
-        # optional trial filters
-        opt_filters = "(randomized controlled trial[pt] OR clinical trial[pt] OR trial[Title/Abstract])"
-        # Combine: prefer Title/Abstract matches or MeSH hits; include optional trial filters via OR to increase recall
-        combined = f"(({idea_clause}) OR ({syn_clause}) OR ({mesh_clause}) OR {opt_filters})"
+        
+        # Extract relevant terms from the actual query
+        key_terms = self._extract_key_terms(idea)
+        
+        # For hearing queries, build a focused search
+        idea_lower = idea.lower()
+        if 'hearing' in idea_lower:
+            # Build specific hearing-related query
+            hearing_terms = ['hearing aid', 'hearing device', 'hearing loss', 'presbycusis', 
+                           'deaf', 'deafness', 'auditory', 'cochlear implant']
+            hearing_clause = " OR ".join([f'"{term}"[Title/Abstract]' for term in hearing_terms])
+            
+            # Add age-related terms if mentioned
+            if 'older' in idea_lower or 'elderly' in idea_lower:
+                age_clause = '(elderly[Title/Abstract] OR "older adults"[Title/Abstract] OR aged[MeSH Terms])'
+                combined = f"({hearing_clause}) AND ({age_clause})"
+            else:
+                combined = f"({hearing_clause})"
+        else:
+            # For non-hearing queries, use the extracted key terms
+            if key_terms:
+                # Use AND between key terms for more focused results
+                key_clause = " AND ".join([f'({term})[Title/Abstract]' for term in key_terms[:3]])
+                combined = key_clause
+            else:
+                # Fallback to the original idea
+                combined = f'({idea})[Title/Abstract]'
         # constrain by humans and language and recent years
         return f"{combined} AND (humans[mesh] OR humans[Title/Abstract] OR humans) AND (english[lang]) AND ({start}[PDAT]:{year}[PDAT])"
 
@@ -207,34 +317,63 @@ class ClinicalTrialsSearcher:
         "studies.protocolSection.identificationModule.nctId",
         "studies.protocolSection.identificationModule.briefTitle",
         "studies.protocolSection.identificationModule.briefSummary",
+        "studies.protocolSection.identificationModule.officialTitle",  # Full title might have N
         # status / dates
         "studies.protocolSection.statusModule.overallStatus",
         "studies.protocolSection.statusModule.startDateStruct",
         "studies.protocolSection.statusModule.primaryCompletionDateStruct",
-        # design
+        # design - CRITICAL FOR N
         "studies.protocolSection.designModule.studyType",
         "studies.protocolSection.designModule.phases",
-        "studies.protocolSection.designModule.enrollmentInfo",
+        "studies.protocolSection.designModule.enrollmentInfo",  # PRIMARY SOURCE OF N
         "studies.protocolSection.designModule.designInfo",
-        # arms / interventions summary
+        "studies.protocolSection.designModule.targetDuration",  # Follow-up period
+        # arms / interventions - useful for per-arm N
         "studies.protocolSection.armsInterventionsModule.numberOfArms",
+        "studies.protocolSection.armsInterventionsModule.armGroups",  # Could have per-arm N
         # outcomes
         "studies.protocolSection.outcomesModule.primaryOutcomes",
+        "studies.protocolSection.outcomesModule.secondaryOutcomes",
+        # eligibility - sometimes mentions target N
+        "studies.protocolSection.eligibilityModule",
         # locations (country list)
         "studies.protocolSection.contactsLocationsModule.locations",
+        # Statistics - might have power calculations
+        "studies.protocolSection.oversightModule.oversightHasDmc",
+        # Results section (for completed trials) - ACTUAL N
+        "studies.resultsSection.participantFlowModule",  # Actual enrollment/completion
+        "studies.resultsSection.baselineCharacteristicsModule",  # Actual baseline N
     ]
 
     async def search(self, idea: str, max_results: int = 8, **filters) -> List[Dict[str, Any]]:
-        # Try several query variants to increase recall across CT.gov
-        query_variants = [
-            idea,
-            ' '.join(idea.split()),
-            ' '.join([w for w in idea.split() if len(w)>3]),
-            f"{idea} children",
-            f"{idea} pediatric",
-            f"obesity children",
-            f"prevent obesity children",
-        ]
+        # Build query variants based on the actual search topic
+        idea_lower = idea.lower()
+        query_variants = []
+        
+        # For hearing-related queries, use specific terms that work well with CT.gov
+        if 'hearing' in idea_lower or 'deaf' in idea_lower:
+            # ClinicalTrials.gov works better with specific medical terms
+            query_variants.extend([
+                "hearing aid",
+                "hearing loss",
+                "presbycusis", 
+                "hearing device",
+                "cochlear implant",
+                "auditory rehabilitation",
+                "hearing aids elderly",
+                "hearing loss older adults"
+            ])
+        else:
+            # For other queries, use the original approach
+            query_variants = [
+                idea,  # Original query
+                ' '.join(idea.split()),  # Normalized spaces
+                ' '.join([w for w in idea.split() if len(w) > 3]),  # Remove short words
+            ]
+            
+            # Only add pediatric variant if the query mentions children/pediatric
+            if any(term in idea_lower for term in ['child', 'pediatric', 'infant', 'adolescent']):
+                query_variants.append(f"{idea} pediatric")
 
         params_base = {"pageSize": min(max_results, 50), "format": "json"}
         params_base.update(self.DEFAULT_FILTERS)
@@ -292,6 +431,7 @@ class ClinicalTrialsSearcher:
 
     def _normalize_record(self, st: Dict[str, Any]) -> Dict[str, Any]:
         ps = st.get("protocolSection", {})
+        rs = st.get("resultsSection", {})  # Results for completed trials
         idm = ps.get("identificationModule", {})
         sm = ps.get("statusModule", {})
         dm = ps.get("designModule", {})
@@ -302,13 +442,51 @@ class ClinicalTrialsSearcher:
         title = idm.get("briefTitle", "")
         summary = idm.get("briefSummary", "")
 
-        # enrollment
+        # Try multiple sources for enrollment/sample size
+        enrollment_count = None
+        enrollment_type = None
+        
+        # 1. Primary source: enrollmentInfo
         ei = dm.get("enrollmentInfo") or {}
         try:
             enrollment_count = int(ei.get("count")) if ei.get("count") else None
+            enrollment_type = ei.get("type")  # Actual | Anticipated
         except Exception:
-            enrollment_count = None
-        enrollment_type = ei.get("type")  # Actual | Anticipated
+            pass
+        
+        # 2. If completed trial, check results section for actual N
+        if not enrollment_count and rs:
+            # Check participant flow for actual enrollment
+            pf = rs.get("participantFlowModule", {})
+            if pf:
+                groups = pf.get("groups", [])
+                if groups:
+                    # Sum up participants across all groups
+                    total = 0
+                    for group in groups:
+                        try:
+                            total += int(group.get("participantsCount", 0))
+                        except:
+                            pass
+                    if total > 0:
+                        enrollment_count = total
+                        enrollment_type = "Actual"
+            
+            # Also check baseline characteristics
+            if not enrollment_count:
+                bc = rs.get("baselineCharacteristicsModule", {})
+                if bc:
+                    groups = bc.get("groups", [])
+                    if groups:
+                        total = 0
+                        for group in groups:
+                            try:
+                                total += int(group.get("participantsCount", 0))
+                            except:
+                                pass
+                        if total > 0:
+                            enrollment_count = total
+                            enrollment_type = "Actual"
 
         # outcomes
         primary_outcomes = (om.get("primaryOutcomes") or [])
@@ -496,23 +674,75 @@ class ResearchIntelligenceEngine:
             if isinstance(r, list):
                 papers.extend(r)
 
-        # quick relevance (keyword overlap + recency + small boosts)
+        # Improved relevance scoring - must have meaningful keyword overlap
         idea_l = (idea or "").lower()
+        
+        # Extract key terms from the query for better matching
+        # Include shorter important words and medical terms
+        stop_words = {'with', 'from', 'that', 'this', 'have', 'been', 'will', 'about', 
+                      'into', 'help', 'increase', 'how'}
+        key_words = [w for w in idea_l.split() if len(w) > 2 and w not in stop_words]
+        
+        # Add important medical terms that might be too short otherwise
+        if any(term in idea_l for term in ['hearing', 'deaf', 'ear']):
+            if 'aid' in idea_l or 'aids' in idea_l:
+                key_words.append('hearing aid')
+            if 'device' in idea_l:
+                key_words.append('hearing device')
+        
         def score(p: Dict[str, Any]) -> float:
-            text = f"{p.get('title','')} {p.get('abstract','')}".lower()
-            overlap = sum(1 for w in set(idea_l.split()) if w and w in text)
+            title = (p.get('title', '') or '').lower()
+            abstract = (p.get('abstract', '') or '').lower()
+            text = f"{title} {abstract}"
+            
+            # Count how many key words from query appear in the paper
+            overlap = sum(1 for w in key_words if w in text)
+            
+            # For hearing queries, also check for hearing-related terms
+            if 'hearing' in ' '.join(key_words) or 'deaf' in ' '.join(key_words):
+                hearing_terms = ['hearing', 'deaf', 'auditory', 'cochlear', 'presbycusis', 
+                               'audiolog', 'sound', 'ear', 'acoustic']
+                hearing_overlap = sum(1 for term in hearing_terms if term in text)
+                if hearing_overlap > 0:
+                    overlap = max(overlap, hearing_overlap)
+            
+            # If no overlap with key terms, score is 0 (irrelevant)
+            if overlap == 0:
+                return 0
+            
+            # Bonus for specific relevance indicators
             boost = 0
             j = (p.get("journal") or "").lower()
-            if "meta" in text: boost += 3
-            if "random" in text: boost += 2
-            if "clinicaltrials.gov" in j: boost += 1
+            
+            # Check if title contains any key terms (stronger signal)
+            title_overlap = sum(1 for w in key_words if w in title)
+            boost += title_overlap * 2  # Title matches are worth more
+            
+            if "meta" in text and "analysis" in text: boost += 2
+            if "randomized" in text or "trial" in text: boost += 1
+            if "clinicaltrials.gov" in j: boost += 0.5
             if p.get("sample_size"): boost += 0.5
+            
             yr = p.get("year") or datetime.now().year
-            recency = max(0, 1.0 - max(0, (datetime.now().year - int(yr))) / 12.0)
+            recency = max(0, 1.0 - max(0, (datetime.now().year - int(yr))) / 10.0)
+            
             return overlap + boost + recency
 
-        rp: List[ResearchPaper] = []
+        # Filter and score papers BEFORE creating ResearchPaper objects
+        scored_papers = []
         for p in papers:
+            if not p.get("title"):  # Skip papers without titles
+                continue
+            paper_score = score(p)
+            if paper_score > 0:  # Only keep papers with positive relevance
+                scored_papers.append((paper_score, p))
+        
+        # Sort by score and take top papers
+        scored_papers.sort(key=lambda x: x[0], reverse=True)
+        
+        # Now create ResearchPaper objects only for relevant papers
+        rp: List[ResearchPaper] = []
+        for _, p in scored_papers[:max_papers]:  # Limit to requested number
             extras = {k: v for k, v in p.items() if k not in {"title","authors","abstract","journal","year","pmid","doi","arxiv_id","url","sample_size","study_signal","source"}}
             rp.append(
                 ResearchPaper(
@@ -530,19 +760,6 @@ class ResearchIntelligenceEngine:
                     extras=extras or None,
                 )
             )
-
-        # rank + dedupe by title
-        rp = [p for p in rp if p.title]
-        rp.sort(
-            key=lambda P: score({
-                "title": P.title,
-                "abstract": P.abstract,
-                "journal": P.journal,
-                "year": P.year,
-                "sample_size": P.sample_size,
-            }),
-            reverse=True,
-        )
         seen, dedup = set(), []
         for p in rp:
             key = p.title.lower().strip()

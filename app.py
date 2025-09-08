@@ -424,10 +424,12 @@ if sc_ok:
 # --------------- Manual override & params ---------------
 if analysis:
     st.header("4) Select & Configure Statistical Test")
-    # Load test catalog if empty
-    if not st.session_state['available_tests']:
-        enh, avail = fetch_available_tests()
-        st.session_state['available_tests'] = avail or [{"test_id":"two_sample_t_test","name":"Two‑Sample t‑test"}]
+    # Always refresh test catalog to ensure we have all tests
+    enh, avail = fetch_available_tests()
+    if avail and len(avail) > 1:  # If we got the full list
+        st.session_state['available_tests'] = avail
+    elif not st.session_state['available_tests']:  # Fallback if nothing loaded
+        st.session_state['available_tests'] = [{"test_id":"two_sample_t_test","name":"Two‑Sample t‑test"}]
     opts = st.session_state['available_tests']
     ids = [o['test_id'] for o in opts]
     names = [o.get('name', get_test_display_name(o['test_id'])) for o in opts]
@@ -435,25 +437,268 @@ if analysis:
     sel_idx = st.selectbox("Choose statistical test:", range(len(names)), index=idx, format_func=lambda i: f"{names[i]} {'🤖' if ids[i]==st.session_state['suggested_test_type'] else ''}")
     st.session_state['selected_test_type'] = ids[sel_idx]
 
-    # Basic t‑test knobs (extend as needed)
-    if st.session_state['selected_test_type'] == 'two_sample_t_test':
+    # Show appropriate parameters for each test type
+    test_type = st.session_state['selected_test_type']
+    
+    # Toggle for advanced mode
+    advanced_mode = st.checkbox("🔧 Advanced Parameters", help="Show additional parameters for statistical experts")
+    
+    if test_type == 'two_sample_t_test':
+        st.subheader("Two-Sample T-Test Parameters")
         c1, c2 = st.columns(2)
         with c1:
             N = st.number_input("Total N", min_value=3, step=1, value=int(st.session_state.get('current_N',100)))
         with c2:
             d = st.number_input("Cohen's d", value=float(st.session_state.get('current_d',0.5)), step=0.01, format="%.3f")
-        st.session_state['current_N'] = N
-        st.session_state['current_d'] = d
-
-        # Local calc if utilities available
-        if calculate_p_value_from_N_d and calculate_power_from_N_d:
-            p_val, p_msg = calculate_p_value_from_N_d(N, d)
-            pw, pw_msg = calculate_power_from_N_d(N, d, 0.05)
-            st.subheader("Quick t‑test estimates")
-            if p_msg: st.warning(p_msg)
-            if pw_msg: st.warning(pw_msg)
-            if p_val is not None: st.metric("p‑value", f"{p_val:.4f}")
-            if pw is not None: st.metric("Power", f"{pw*100:.1f}%")
+        
+        if advanced_mode:
+            st.markdown("### 🔧 Advanced T-Test Settings")
+            adv_c1, adv_c2 = st.columns(2)
+            with adv_c1:
+                alpha = st.number_input("Alpha (α)", value=0.05, min_value=0.001, max_value=0.1, step=0.01)
+                power_target = st.number_input("Target Power", value=0.80, min_value=0.5, max_value=0.99, step=0.05)
+                allocation_ratio = st.number_input("Allocation ratio (n1:n2)", value=1.0, min_value=0.1, max_value=10.0, step=0.1)
+            with adv_c2:
+                equal_var = st.checkbox("Assume equal variances", value=True)
+                one_tailed = st.checkbox("One-tailed test", value=False)
+                continuity_correction = st.checkbox("Continuity correction", value=False)
+                
+    elif test_type == 'mixed_effects':
+        st.subheader("Mixed Effects Model (MMRM) Parameters")
+        c1, c2 = st.columns(2)
+        with c1:
+            N = st.number_input("Total N (subjects)", min_value=10, step=1, value=200)
+            n_timepoints = st.number_input("Number of timepoints", min_value=2, max_value=20, value=4)
+            effect_size = st.number_input("Effect size", value=0.5, step=0.1)
+        with c2:
+            n_groups = st.number_input("Number of groups", min_value=2, max_value=10, value=2)
+            dropout_rate = st.slider("Expected dropout rate", 0.0, 0.5, 0.2, 0.05)
+        
+        # Advanced parameters section (outside columns)
+        if advanced_mode:
+            st.markdown("### 🔧 Advanced MMRM Settings")
+            adv_c1, adv_c2, adv_c3 = st.columns(3)
+            with adv_c1:
+                correlation = st.slider("Within-subject correlation", 0.0, 0.9, 0.5, 0.1)
+                alpha = st.number_input("Alpha (α)", value=0.05, min_value=0.001, max_value=0.1, step=0.01)
+                n_covariates = st.number_input("Number of covariates", min_value=0, max_value=20, value=3)
+            with adv_c2:
+                covariance = st.selectbox("Covariance structure", 
+                    ["Unstructured", "Compound Symmetry", "AR(1)", "Toeplitz", "Heterogeneous CS", "Ante-dependence"])
+                missing_data = st.selectbox("Missing data method",
+                    ["MAR (Missing at Random)", "MCAR", "MNAR", "Multiple Imputation"])
+                baseline_adjustment = st.checkbox("Baseline as covariate", value=True)
+            with adv_c3:
+                random_slope = st.checkbox("Include random slopes", value=False)
+                random_intercept = st.checkbox("Include random intercepts", value=True)
+                center_effects = st.checkbox("Include center effects", value=False)
+                interaction_test = st.checkbox("Test treatment × time", value=True)
+                
+    elif test_type == 'chi_square':
+        st.subheader("Chi-Square Test Parameters")
+        c1, c2 = st.columns(2)
+        with c1:
+            N = st.number_input("Total N", min_value=20, step=1, value=200)
+            n_groups = st.number_input("Number of groups", min_value=2, max_value=10, value=2)
+        with c2:
+            n_categories = st.number_input("Number of categories", min_value=2, max_value=10, value=2)
+            effect_size = st.number_input("Cramér's V", value=0.3, min_value=0.1, max_value=1.0, step=0.05)
+        
+        # Advanced parameters (outside columns for proper display)  
+        if advanced_mode:
+            st.markdown("### 🔧 Advanced Chi-Square Settings")
+            adv_c1, adv_c2 = st.columns(2)
+            with adv_c1:
+                expected_freq = st.number_input("Min expected frequency", value=5, min_value=1)
+                alpha = st.number_input("Alpha (α)", value=0.05, min_value=0.001, max_value=0.1, step=0.01, key="chi_alpha")
+            with adv_c2:
+                continuity = st.checkbox("Yates continuity correction", value=False)
+                monte_carlo = st.checkbox("Use Monte Carlo simulation", value=False)
+            
+    elif test_type == 'logistic_regression':
+        st.subheader("Logistic Regression Parameters")
+        c1, c2 = st.columns(2)
+        with c1:
+            N = st.number_input("Total N", min_value=50, step=10, value=300)
+            n_predictors = st.number_input("Number of predictors", min_value=1, max_value=50, value=5)
+            event_rate = st.slider("Baseline event rate", 0.05, 0.95, 0.5, 0.05)
+        with c2:
+            odds_ratio = st.number_input("Target odds ratio", value=2.0, min_value=0.1, max_value=10.0, step=0.1)
+            r_squared = st.slider("Pseudo R²", 0.0, 0.5, 0.15, 0.05)
+        
+        # Advanced parameters (outside columns for proper display)
+        if advanced_mode:
+            st.markdown("### 🔧 Advanced Logistic Regression Settings")
+            adv_c1, adv_c2, adv_c3 = st.columns(3)
+            with adv_c1:
+                interaction_terms = st.number_input("Interaction terms", min_value=0, max_value=10, value=0)
+                alpha = st.number_input("Alpha (α)", value=0.05, min_value=0.001, max_value=0.1, step=0.01)
+                multicollinearity = st.slider("Max VIF allowed", 1.0, 10.0, 5.0, 0.5)
+            with adv_c2:
+                link_function = st.selectbox("Link function", ["Logit", "Probit", "Complementary log-log"])
+                regularization = st.selectbox("Regularization", ["None", "L1 (Lasso)", "L2 (Ridge)", "Elastic Net"])
+                if regularization == "Elastic Net":
+                    l1_ratio = st.slider("L1 ratio", 0.0, 1.0, 0.5, 0.1)
+            with adv_c3:
+                bootstrap_ci = st.checkbox("Bootstrap confidence intervals", value=False)
+                robust_se = st.checkbox("Robust standard errors", value=False)
+                clustered_se = st.checkbox("Clustered standard errors", value=False)
+                
+    elif test_type == 'cox_regression':
+        st.subheader("Cox Proportional Hazards Parameters")
+        c1, c2 = st.columns(2)
+        with c1:
+            N = st.number_input("Total N", min_value=50, step=10, value=500)
+            n_events = st.number_input("Expected events", min_value=10, step=5, value=100)
+            follow_up = st.number_input("Median follow-up (months)", min_value=1, value=24)
+        with c2:
+            hazard_ratio = st.number_input("Target hazard ratio", value=0.7, min_value=0.1, max_value=5.0, step=0.1)
+            n_covariates = st.number_input("Number of covariates", min_value=0, max_value=30, value=5)
+        
+        # Advanced parameters (outside columns for proper display)
+        if advanced_mode:
+            st.markdown("### 🔧 Advanced Cox PH Settings")
+            adv_c1, adv_c2, adv_c3 = st.columns(3)
+            with adv_c1:
+                censoring_rate = st.slider("Censoring rate", 0.0, 0.8, 0.3, 0.05)
+                alpha = st.number_input("Alpha (α)", value=0.05, min_value=0.001, max_value=0.1, step=0.01, key="cox_alpha")
+                stratification = st.checkbox("Use stratification", value=False)
+            with adv_c2:
+                ph_assumption = st.checkbox("Check proportional hazards", value=True)
+                time_varying = st.checkbox("Time-varying covariates", value=False)
+                interaction_terms = st.checkbox("Include interactions", value=False)
+            with adv_c3:
+                competing_risks = st.checkbox("Account for competing risks", value=False)
+                frailty_model = st.checkbox("Include frailty term", value=False)
+                recurrent_events = st.checkbox("Handle recurrent events", value=False)
+            
+    elif test_type == 'one_way_anova':
+        st.subheader("One-Way ANOVA Parameters")
+        c1, c2 = st.columns(2)
+        with c1:
+            N = st.number_input("Total N", min_value=30, step=5, value=150)
+            n_groups = st.number_input("Number of groups", min_value=3, max_value=10, value=3)
+        with c2:
+            effect_size = st.number_input("Cohen's f", value=0.25, min_value=0.1, max_value=1.0, step=0.05,
+                                        help="Small=0.10, Medium=0.25, Large=0.40")
+        
+        # Advanced parameters (outside columns for proper display)
+        if advanced_mode:
+            st.markdown("### 🔧 Advanced ANOVA Settings")
+            adv_c1, adv_c2, adv_c3 = st.columns(3)
+            with adv_c1:
+                alpha = st.number_input("Alpha (α)", value=0.05, min_value=0.001, max_value=0.1, step=0.01, key="anova_alpha")
+                equal_variance = st.checkbox("Assume equal variances", value=True)
+                balanced_design = st.checkbox("Balanced design", value=True)
+            with adv_c2:
+                post_hoc = st.selectbox("Post-hoc test", 
+                    ["None", "Tukey HSD", "Bonferroni", "Scheffe", "Duncan", "Newman-Keuls"])
+                effect_type = st.selectbox("Effect size type", ["Cohen's f", "Eta-squared", "Omega-squared"])
+            with adv_c3:
+                sphericity_correction = st.checkbox("Apply sphericity correction", value=False)
+                welch_anova = st.checkbox("Use Welch's ANOVA", value=False, 
+                                        help="For unequal variances")
+                
+    elif test_type == 'correlation':
+        st.subheader("Correlation Analysis Parameters")
+        c1, c2 = st.columns(2)
+        with c1:
+            N = st.number_input("Total N", min_value=10, step=5, value=100)
+            correlation_type = st.selectbox("Correlation type", ["Pearson", "Spearman", "Kendall"])
+        with c2:
+            effect_size = st.number_input("Expected correlation (r)", 
+                                        value=0.3, min_value=-1.0, max_value=1.0, step=0.05,
+                                        help="Small=0.1, Medium=0.3, Large=0.5")
+        
+        # Advanced parameters (outside columns for proper display)
+        if advanced_mode:
+            st.markdown("### 🔧 Advanced Correlation Settings")
+            adv_c1, adv_c2 = st.columns(2)
+            with adv_c1:
+                alpha = st.number_input("Alpha (α)", value=0.05, min_value=0.001, max_value=0.1, step=0.01, key="corr_alpha")
+                test_type_corr = st.selectbox("Test type", ["Two-tailed", "One-tailed (positive)", "One-tailed (negative)"])
+                confidence_level = st.slider("Confidence level", 0.90, 0.99, 0.95, 0.01)
+            with adv_c2:
+                fisher_transform = st.checkbox("Use Fisher's z transformation", value=True)
+                bootstrap_ci = st.checkbox("Bootstrap confidence intervals", value=False)
+                partial_correlation = st.checkbox("Partial correlation", value=False)
+                if partial_correlation:
+                    n_control_vars = st.number_input("Control variables", min_value=1, max_value=10, value=1)
+                    
+    elif test_type in ['mann_whitney', 'wilcoxon_signed', 'kruskal_wallis']:
+        st.subheader(f"{test_type.replace('_', ' ').title()} Parameters")
+        c1, c2 = st.columns(2)
+        with c1:
+            N = st.number_input("Total N", min_value=10, step=1, value=100)
+            if test_type == 'kruskal_wallis':
+                n_groups = st.number_input("Number of groups", min_value=3, max_value=10, value=3)
+        with c2:
+            effect_size = st.number_input("Effect size (probability of superiority)", 
+                                        value=0.65, min_value=0.5, max_value=1.0, step=0.05)
+        
+        # Advanced parameters (outside columns for proper display)
+        if advanced_mode:
+            st.markdown("### 🔧 Advanced Non-Parametric Settings")
+            adv_c1, adv_c2 = st.columns(2)
+            with adv_c1:
+                ties_method = st.selectbox("Method for handling ties", ["average", "min", "max", "dense", "ordinal"])
+                alpha = st.number_input("Alpha (α)", value=0.05, min_value=0.001, max_value=0.1, step=0.01, key="nonparam_alpha")
+            with adv_c2:
+                continuity_correction = st.checkbox("Apply continuity correction", value=True)
+                exact_test = st.checkbox("Use exact test (slower)", value=False)
+                
+    else:
+        # Default parameters for other tests
+        st.subheader(f"{test_type.replace('_', ' ').title()} Parameters")
+        c1, c2 = st.columns(2)
+        with c1:
+            N = st.number_input("Total N", min_value=20, step=1, value=100)
+        with c2:
+            effect_size = st.number_input("Effect size", value=0.5, step=0.1)
+        if advanced_mode:
+            st.info("Advanced parameters coming soon for this test type.")
+    
+    # Store parameters for calculation
+    st.session_state['current_N'] = N
+    st.session_state['current_effect_size'] = locals().get('effect_size', locals().get('d', 0.5))
+    
+    # Calculate and show results
+    if st.button("📊 Calculate", type="primary"):
+        params = {
+            'total_n': N,
+            'effect_size_value': st.session_state['current_effect_size'],
+            'alpha': locals().get('alpha', 0.05)
+        }
+        
+        # Add test-specific parameters
+        if test_type == 'mixed_effects':
+            params.update({
+                'n_timepoints': n_timepoints,
+                'n_groups': n_groups,
+                'dropout_rate': dropout_rate,
+                'correlation': locals().get('correlation', 0.5)
+            })
+        elif test_type == 'logistic_regression':
+            params.update({
+                'n_predictors': n_predictors,
+                'event_rate': event_rate,
+                'odds_ratio': odds_ratio
+            })
+            
+        # Call calculation
+        calc_result = calculate_statistics(test_type, params)
+        
+        if calc_result:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("P-value", f"{calc_result.get('p_value', 'N/A'):.4f}" if calc_result.get('p_value') else "N/A")
+            with col2:
+                st.metric("Power", f"{calc_result.get('power', 0)*100:.1f}%" if calc_result.get('power') else "N/A")
+            with col3:
+                st.metric("Sample Size", calc_result.get('sample_size', N))
+            
+            if calc_result.get('error'):
+                st.info(calc_result['error'])
 
 st.markdown("---")
 st.caption("Exploratory tool — consult a biostatistician for study planning.")

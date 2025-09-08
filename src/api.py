@@ -82,14 +82,15 @@ async def get_llm_enhanced_analysis_azure_openai(text: str) -> dict:
             Study: {text}
             
             Return a JSON object with these fields:
-            - suggested_study_type: one of [two_sample_t_test, mixed_effects, chi_square, logistic_regression, cox_regression, mann_whitney, one_way_anova, correlation]
+            - suggested_study_type: one of [two_sample_t_test, paired_t_test, mixed_effects, chi_square, logistic_regression, cox_regression, mann_whitney, kruskal_wallis, one_way_anova, pearson_correlation, spearman_correlation, linear_regression]
             - rationale: brief explanation why this test is appropriate
             - parameters: object with total_n (sample size) and effect_size_value
-            - alternative_tests: array of other viable test options
-            - data_type: continuous, categorical, binary, or survival
+            - alternative_tests: array of 2-3 other viable test options from the list above
+            - data_type: one of [continuous, categorical, binary, survival, ordinal]
+            - study_design: one of [randomized_controlled_trial, observational, cross_sectional, longitudinal_repeated_measures, prospective_cohort, case_control]
             
             Example response:
-            {{"suggested_study_type": "mixed_effects", "rationale": "Repeated measures over time", "parameters": {{"total_n": 200, "effect_size_value": 0.5}}, "alternative_tests": ["gee"], "data_type": "continuous"}}
+            {{"suggested_study_type": "mixed_effects", "rationale": "Repeated measures over time with multiple covariates", "parameters": {{"total_n": 200, "effect_size_value": 0.5}}, "alternative_tests": ["repeated_measures_anova", "gee", "linear_regression"], "data_type": "continuous", "study_design": "longitudinal_repeated_measures"}}
             """
             
             response = client.chat.completions.create(
@@ -263,7 +264,8 @@ def validate_and_extract_enhanced_response(d: dict) -> dict:
         "initial_N": d.get("initial_N"),
         "initial_cohens_d": d.get("initial_cohens_d"),
         "estimation_justification": d.get("estimation_justification"),
-        "references": d.get("references") or [],
+        # NEVER extract references from LLM - they hallucinate!
+        # References must only come from actual web searches via research_intelligence.py
     }
 
 
@@ -333,7 +335,12 @@ async def process_idea(item: EnhancedIdeaInput):
     calc = perform_statistical_calculations(v["suggested_study_type"], v["parameters"])
 
     refs = []
+    refs_structured = []
+    research_debug = {}
+    
+    # Only get references from actual web searches, never from LLM
     if item.include_research and RESEARCH_INTELLIGENCE_AVAILABLE:
+        print(f"📚 Literature search enabled for: {item.study_description[:50]}...")
         try:
             engine = get_research_engine()
             if engine:
@@ -388,11 +395,16 @@ async def process_idea(item: EnhancedIdeaInput):
                         })
                     # attach structured data to response so frontend can render table
                     refs_structured = papers_payload
+                    print(f"✅ Found {len(refs)} references from web searches")
                 else:
-                    refs_structured = []
+                    print("⚠️ No papers found in literature search")
                     research_debug = {'pubmed': {'count':0}, 'clinicaltrials': {'count':0}, 'arxiv': {'count':0}}
-        except Exception:
-            refs = []
+            else:
+                print("⚠️ Research engine not available")
+        except Exception as e:
+            print(f"❌ Literature search error: {e}")
+    else:
+        print(f"📚 Literature search disabled (include_research={item.include_research})")
 
     return StatisticalAnalysisOutput(
         suggested_study_type=v["suggested_study_type"],
@@ -406,9 +418,9 @@ async def process_idea(item: EnhancedIdeaInput):
         calculated_power=calc.get("calculated_power"),
         statistical_test_used=calc.get("statistical_test_used"),
         calculation_error=calc.get("calculation_error"),
-        references=refs,
-        research_papers_data=refs_structured if 'refs_structured' in locals() else [],
-        research_debug=research_debug if 'research_debug' in locals() else {},
+        references=refs,  # Only from actual web searches
+        research_papers_data=refs_structured,  # Already initialized to []
+        research_debug=research_debug,  # Already initialized to {}
         processed_idea=item.study_description,
         llm_provider_used=provider,
         llm_warning=llm.get("llm_warning"),  # Pass through warning
