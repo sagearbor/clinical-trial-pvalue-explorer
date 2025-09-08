@@ -4,7 +4,7 @@ This application allows users to input a clinical trial research idea (or a URL 
 
 **Disclaimer:** The AI's estimates for N and Cohen's d are very rough approximations and intended for exploratory and educational purposes only. They should not be used for actual clinical trial planning without consultation with a qualified statistician. The primary utility of this tool is the interactive p-value calculator.
 
-## Project Structure
+## Project Structure   
 
 ```
 clinical-trial-pvalue-explorer/
