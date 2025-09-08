@@ -1,0 +1,292 @@
+================================================================================
+IMPROVED PATTERN EXTRACTION TEST
+================================================================================
+
+[1/16] Testing query: 'randomized controlled trial diabetes'
+✅ PubMed: Found 5 relevant papers
+  ✅ PubMed: N=51
+  ✅ PubMed: N=1570
+  ✅ PubMed: N=1123
+  ✅ PubMed: N=16
+  ❌ PubMed: N=None
+✅ PubMed: Found 2 relevant papers
+  ✅ ClinicalTrials.gov: N=51
+  ✅ ClinicalTrials.gov: N=1123
+  ✅ ClinicalTrials.gov: N=60
+  ✅ ClinicalTrials.gov: N=15480
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[2/16] Testing query: 'cohort study cardiovascular'
+   Rejected: Aortic and mitral valve repair in a child with rheumatic hea... (no match for: ['cardiovascular'])
+   Rejected: The Muscle Mass Paradox: Elevated Lean Mass Indices Impair S... (no match for: ['cardiovascular'])
+   Rejected: Effectiveness of Medical Nutrition Therapy in the Management... (no match for: ['cardiovascular'])
+✅ PubMed: Found 2 relevant papers
+  ✅ PubMed: N=156
+  ❌ PubMed: N=None
+  ✅ ClinicalTrials.gov: N=4471
+⚠️ PubMed: No relevant papers found for 'cohort study cardiovascular...'
+  ✅ arXiv: N=1123
+  ✅ arXiv: N=15000
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[3/16] Testing query: 'case control cancer'
+   Rejected: Re-do VATS for recurrent pneumothorax in a Birt-Hogg-Dubé sy... (no match for: ['cancer'])
+   Rejected: Segmentectomies Made Easy series: robotic-assisted right S1 ... (no match for: ['cancer'])
+   Rejected: Segmentectomies Made Easy series: robotic-assisted left S1 a... (no match for: ['cancer'])
+✅ PubMed: Found 2 relevant papers
+  ✅ PubMed: N=25
+  ✅ PubMed: N=29
+  ✅ ClinicalTrials.gov: N=300
+⚠️ PubMed: No relevant papers found for 'case control cancer...'
+
+[4/16] Testing query: 'cross sectional survey mental health'
+  ❌ PubMed: N=None
+  ✅ PubMed: N=697
+  ✅ PubMed: N=1810
+  ❌ PubMed: N=None
+  ✅ PubMed: N=248
+  ✅ ClinicalTrials.gov: N=697
+⚠️ PubMed: No relevant papers found for 'cross sectional survey mental health...'
+  ✅ arXiv: N=1983
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ✅ arXiv: N=93
+  ❌ arXiv: N=None
+
+📊 Progress Report (after 4 queries):
+  Overall: 21/36 (58.3%)
+  PubMed: 10/14 (71.4%)
+  ClinicalTrials.gov: 7/7 (100.0%)
+  arXiv: 4/15 (26.7%)
+
+[5/16] Testing query: 'systematic review meta-analysis'
+  ✅ PubMed: N=24
+  ✅ PubMed: N=31
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ✅ PubMed: N=22
+  ✅ ClinicalTrials.gov: N=1
+⚠️ PubMed: No relevant papers found for 'systematic review meta-analysis...'
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[6/16] Testing query: 'pilot study feasibility'
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ✅ PubMed: N=28
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ✅ ClinicalTrials.gov: N=12
+  ✅ ClinicalTrials.gov: N=28
+  ✅ ClinicalTrials.gov: N=20
+⚠️ PubMed: No relevant papers found for 'pilot study feasibility...'
+  ❌ arXiv: N=None
+  ✅ arXiv: N=28
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[7/16] Testing query: 'longitudinal follow-up'
+  ✅ PubMed: N=1594
+  ✅ PubMed: N=19
+  ❌ PubMed: N=None
+  ✅ PubMed: N=200
+  ✅ PubMed: N=15
+⚠️ PubMed: No relevant papers found for 'longitudinal follow-up...'
+  ❌ arXiv: N=None
+  ✅ arXiv: N=13
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[8/16] Testing query: 'retrospective analysis'
+  ❌ PubMed: N=None
+  ✅ PubMed: N=68
+  ✅ PubMed: N=428
+  ✅ PubMed: N=156
+  ❌ PubMed: N=None
+⚠️ PubMed: No relevant papers found for 'retrospective analysis...'
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ✅ arXiv: N=109
+
+📊 Progress Report (after 8 queries):
+  Overall: 39/80 (48.8%)
+  PubMed: 21/34 (61.8%)
+  ClinicalTrials.gov: 11/11 (100.0%)
+  arXiv: 7/35 (20.0%)
+
+[9/16] Testing query: 'clinical trial oncology'
+✅ PubMed: Found 5 relevant papers
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ✅ PubMed: N=360
+  ✅ ClinicalTrials.gov: N=220
+  ✅ ClinicalTrials.gov: N=3
+  ✅ ClinicalTrials.gov: N=8
+⚠️ PubMed: No relevant papers found for 'clinical trial oncology...'
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[10/16] Testing query: 'pediatric study obesity'
+✅ PubMed: Found 5 relevant papers
+  ✅ PubMed: N=25
+  ✅ PubMed: N=100
+  ✅ PubMed: N=168
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ✅ ClinicalTrials.gov: N=217
+⚠️ PubMed: No relevant papers found for 'pediatric study obesity...'
+  ❌ arXiv: N=None
+  ✅ arXiv: N=4550
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[11/16] Testing query: 'geriatric intervention dementia'
+   Rejected: Identification of pathogenic cell types and shared genetic l... (no match for: ['intervention', 'dementia'])
+   Rejected: Intrahippocampally Injected Human Recombinant Clusterin Redu... (no match for: ['intervention', 'dementia'])
+✅ PubMed: Found 3 relevant papers
+  ❌ PubMed: N=None
+  ✅ PubMed: N=12
+  ✅ PubMed: N=42214
+  ❌ PubMed: N=None
+  ✅ ClinicalTrials.gov: N=125
+  ✅ ClinicalTrials.gov: N=12
+   Rejected: Identification of pathogenic cell types and shared genetic l... (no match for: ['intervention', 'dementia'])
+✅ PubMed: Found 1 relevant papers
+  ✅ arXiv: N=12
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[12/16] Testing query: 'surgical outcomes'
+  ✅ PubMed: N=1
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ✅ ClinicalTrials.gov: N=1
+⚠️ PubMed: No relevant papers found for 'surgical outcomes...'
+  ❌ arXiv: N=None
+  ✅ arXiv: N=1
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+📊 Progress Report (after 12 queries):
+  Overall: 56/124 (45.2%)
+  PubMed: 28/53 (52.8%)
+  ClinicalTrials.gov: 18/18 (100.0%)
+  arXiv: 10/53 (18.9%)
+
+[13/16] Testing query: 'drug efficacy safety'
+  ✅ PubMed: N=70
+  ✅ PubMed: N=24
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ✅ PubMed: N=30
+  ✅ ClinicalTrials.gov: N=274
+  ✅ ClinicalTrials.gov: N=220
+⚠️ PubMed: No relevant papers found for 'drug efficacy safety...'
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[14/16] Testing query: 'vaccine immunogenicity'
+  ✅ PubMed: N=5000
+  ❌ PubMed: N=None
+  ✅ PubMed: N=487
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ✅ ClinicalTrials.gov: N=5000
+  ✅ ClinicalTrials.gov: N=3
+  ✅ ClinicalTrials.gov: N=349
+  ✅ ClinicalTrials.gov: N=115
+  ✅ ClinicalTrials.gov: N=60
+⚠️ PubMed: No relevant papers found for 'vaccine immunogenicity...'
+  ✅ arXiv: N=5000
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[15/16] Testing query: 'diagnostic accuracy'
+  ✅ PubMed: N=25
+  ✅ PubMed: N=346
+  ✅ PubMed: N=14
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+⚠️ PubMed: No relevant papers found for 'diagnostic accuracy...'
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+[16/16] Testing query: 'therapeutic intervention'
+   Rejected: Metastatic Breast Cancer mHealth App to Promote Patient-Prov... (no match for: ['intervention'])
+   Rejected: Fermented Food Consumption Across European Regions: Protocol... (no match for: ['intervention'])
+✅ PubMed: Found 3 relevant papers
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+  ❌ PubMed: N=None
+   Rejected: Metastatic Breast Cancer mHealth App to Promote Patient-Prov... (no match for: ['intervention'])
+✅ PubMed: Found 1 relevant papers
+  ❌ ClinicalTrials.gov: N=None
+⚠️ PubMed: No relevant papers found for 'therapeutic intervention...'
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+  ❌ arXiv: N=None
+
+📊 Progress Report (after 16 queries):
+  Overall: 72/170 (42.4%)
+  PubMed: 36/71 (50.7%)
+  ClinicalTrials.gov: 25/26 (96.2%)
+  arXiv: 11/73 (15.1%)
+
+================================================================================
+FINAL RESULTS
+================================================================================
+
+📊 Overall Extraction Rate: 72/170 (42.4%)
+
+📊 By Source:
+  PubMed: 36/71 (50.7%)
+  ClinicalTrials.gov: 25/26 (96.2%)
+  arXiv: 11/73 (15.1%)
+
+📄 Detailed results saved to: improved_extraction_results.csv
+
+🔍 Analyzing extraction failures...
+  Found 98 failed extractions
+  Failures by source:
+    PubMed: 35
+    arXiv: 62
+    ClinicalTrials.gov: 1
+
+  Sample failures for review:
+    - Feasibility of implementing an intervention in gen (PubMed)
+    - An Outcome Model Approach to Translating a Randomi (arXiv)
+    - Prognostic Adjustment with Efficient Estimators to (arXiv)
+    - Predicting Counterfactuals from Large Historical D (arXiv)
+    - Large-scale Virtual Clinical Trials of Closed-loop (arXiv)

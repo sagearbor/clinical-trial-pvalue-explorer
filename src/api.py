@@ -382,17 +382,25 @@ async def process_idea(item: EnhancedIdeaInput):
                         refs.append(s)
 
                         # structured record for table view
-                        papers_payload.append({
+                        paper_dict = {
                             "title": p.title,
                             "authors": p.authors,
                             "year": p.year,
                             "journal": p.journal,
                             "sample_size": p.sample_size,
+                            "sample_size_method": p.sample_size_method,  # Pass through extraction method
+                            "p_value": p.p_value,  # Pass through extracted p-value
                             "study_signal": p.study_signal,
                             "url": p.url,
                             "extras": p.extras,
                             "_inferred_source": src,
-                        })
+                        }
+                        
+                        # Debug logging
+                        if p.sample_size_method or p.p_value:
+                            print(f"   📊 Paper has fields: sample_size_method={p.sample_size_method}, p_value={p.p_value}")
+                        
+                        papers_payload.append(paper_dict)
                     # attach structured data to response so frontend can render table
                     refs_structured = papers_payload
                     print(f"✅ Found {len(refs)} references from web searches")

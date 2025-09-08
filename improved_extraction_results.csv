@@ -1,0 +1,171 @@
+Query,Source,Title,N_Found,Method,P_value,Success
+randomized controlled trial di,PubMed,"The Effect of Metformin on Insulin Requirement, Gl",51,text_extraction,0.004,Y
+randomized controlled trial di,PubMed,Indobufen Versus Aspirin Plus Clopidogrel in Patie,1570,text_extraction,,Y
+randomized controlled trial di,PubMed,Potential therapeutic benefits of curcumin in depr,1123,text_extraction,0.01,Y
+randomized controlled trial di,PubMed,Insights Into How Digital Health Interventions Sha,16,text_extraction,,Y
+randomized controlled trial di,PubMed,Feasibility of implementing an intervention in gen,,,,N
+randomized controlled trial di,ClinicalTrials.gov,"The Effect of Metformin on Insulin Requirement, Gl",51,text_extraction,0.004,Y
+randomized controlled trial di,ClinicalTrials.gov,Potential therapeutic benefits of curcumin in depr,1123,text_extraction,0.01,Y
+randomized controlled trial di,ClinicalTrials.gov,Effect of Walking Exercise Training on Adherence t,60,structured,,Y
+randomized controlled trial di,ClinicalTrials.gov,ASCEND: A Study of Cardiovascular Events iN Diabet,15480,structured,,Y
+randomized controlled trial di,arXiv,An Outcome Model Approach to Translating a Randomi,,,,N
+randomized controlled trial di,arXiv,Prognostic Adjustment with Efficient Estimators to,,,,N
+randomized controlled trial di,arXiv,Predicting Counterfactuals from Large Historical D,,,,N
+randomized controlled trial di,arXiv,Large-scale Virtual Clinical Trials of Closed-loop,,,,N
+randomized controlled trial di,arXiv,High-performance Uncertainty Quantification in Lar,,,,N
+cohort study cardiovascular,PubMed,GLP-1 RAs and Cardiovascular and Kidney Outcomes b,156,text_extraction,,Y
+cohort study cardiovascular,PubMed,Effect of cumin and coriander seeds consumption on,,,,N
+cohort study cardiovascular,ClinicalTrials.gov,Genotype Guided Comparison of Clopidogrel and Pras,4471,structured,,Y
+cohort study cardiovascular,arXiv,Multi-level Phenotypic Models of Cardiovascular Di,1123,text_extraction,,Y
+cohort study cardiovascular,arXiv,Bayesian feature selection in joint models with ap,15000,text_extraction,,Y
+cohort study cardiovascular,arXiv,Integrated Oculomics and Lipidomics Reveal Microva,,,,N
+cohort study cardiovascular,arXiv,A Bayesian semi-parametric approach to causal medi,,,,N
+cohort study cardiovascular,arXiv,Combining longitudinal cohort studies to examine c,,,,N
+case control cancer,PubMed,Metastatic Breast Cancer mHealth App to Promote Pa,25,text_extraction,,Y
+case control cancer,PubMed,Patient and Physician Perceptions of Prostate-Spec,29,text_extraction,,Y
+case control cancer,ClinicalTrials.gov,Validation of DNA Methylation Biomarkers for Oral ,300,structured,,Y
+cross sectional survey mental ,PubMed,The Role of Chronic Disease Numbers in the Relatio,,,,N
+cross sectional survey mental ,PubMed,Multiple Symptoms in Cancer Patients a Cross Secti,697,structured,,Y
+cross sectional survey mental ,PubMed,"Epidemiology of Suicidal Ideation, Planning, and A",1810,text_extraction,,Y
+cross sectional survey mental ,PubMed,"Consortium profile: the methylation, imaging and N",,,,N
+cross sectional survey mental ,PubMed,Planning care for nursing-home residents: cognitiv,248,text_extraction,0.001,Y
+cross sectional survey mental ,ClinicalTrials.gov,Multiple Symptoms in Cancer Patients a Cross Secti,697,structured,,Y
+cross sectional survey mental ,arXiv,Serum 25-hydroxyvitamin D concentration is not ass,1983,text_extraction,,Y
+cross sectional survey mental ,arXiv,Multimodal Machine Learning in Mental Health: A Su,,,,N
+cross sectional survey mental ,arXiv,An Integrative Survey on Mental Health Conversatio,,,,N
+cross sectional survey mental ,arXiv,"""Sighted People Have Their Pick Of The Litter"": Un",93,text_extraction,,Y
+cross sectional survey mental ,arXiv,A Survey of Large Language Models in Mental Health,,,,N
+systematic review meta-analysi,PubMed,Intravenous thrombolysis before endovascular thera,24,text_extraction,,Y
+systematic review meta-analysi,PubMed,Effects of exercise on fatigue and quality of life,31,text_extraction,0.023,Y
+systematic review meta-analysi,PubMed,Eye bank pre-stripped versus surgeon-stripped graf,,,,N
+systematic review meta-analysi,PubMed,Retraction of article: Effectiveness and safety of,,,,N
+systematic review meta-analysi,PubMed,The go/no-go successive matching task and the emer,22,text_extraction,,Y
+systematic review meta-analysi,ClinicalTrials.gov,Umbrella Review and Updated Systematic Review and ,1,structured,,Y
+systematic review meta-analysi,arXiv,ALL-IN meta-analysis: breathing life into living s,,,,N
+systematic review meta-analysi,arXiv,Quantifying replicability in systematic reviews: t,,,,N
+systematic review meta-analysi,arXiv,Statistical Methods for the meta-analysis paper by,,,,N
+systematic review meta-analysi,arXiv,Accumulation Bias in Meta-Analysis: The Need to Co,,,,N
+systematic review meta-analysi,arXiv,Can ChatGPT Write a Good Boolean Query for Systema,,,,N
+pilot study feasibility,PubMed,Implementation and evaluation of a family planning,,,,N
+pilot study feasibility,PubMed,"Development, and pilot study of a single-session '",,,,N
+pilot study feasibility,PubMed,Feasibility Study of a Home-based Physical Activit,28,structured,,Y
+pilot study feasibility,PubMed,Multimodal Interventions for Chronic Low Back Pain,,,0.001,N
+pilot study feasibility,PubMed,Quantitative Susceptibility Mapping for Evaluating,,,0.001,N
+pilot study feasibility,ClinicalTrials.gov,Feasibility Testing and Pilot Study of V-MOTIVE Pr,12,structured,,Y
+pilot study feasibility,ClinicalTrials.gov,Feasibility Study of a Home-based Physical Activit,28,structured,,Y
+pilot study feasibility,ClinicalTrials.gov,LEgal Guidance and AdvocaCY for CAREgivers (LEGACY,20,structured,,Y
+pilot study feasibility,arXiv,The efficiencies of pilot feasibility trials in ra,,,,N
+pilot study feasibility,arXiv,Feasibility Study of a Home-based Physical Activit,28,structured,,Y
+pilot study feasibility,arXiv,Virtual Agent Tutors in Sheltered Workshops: A Fea,,,,N
+pilot study feasibility,arXiv,Design and Feasibility of a Community Motorcycle A,,,,N
+pilot study feasibility,arXiv,Decoding Fatigue Levels of Pilots Using EEG Signal,,,,N
+longitudinal follow-up,PubMed,Novel Visceral Obesity Indicators and Associated M,1594,text_extraction,,Y
+longitudinal follow-up,PubMed,Impact of Longitudinal Pulmonary Ultrasound Curric,19,text_extraction,,Y
+longitudinal follow-up,PubMed,Asymptomatic Apical Hypertrophic Cardiomyopathy Un,,,,N
+longitudinal follow-up,PubMed,Serum Proteomic Profile Based on the TGF-β Pathway,200,text_extraction,0.05,Y
+longitudinal follow-up,PubMed,Mental health among healthcare workers during COVI,15,text_extraction,,Y
+longitudinal follow-up,arXiv,Real-Time Active Learning for optimised spectrosco,,,,N
+longitudinal follow-up,arXiv,A 10 deg$^2$ Lyman-$α$ survey at z=8.8 with spectr,13,text_extraction,,Y
+longitudinal follow-up,arXiv,The MACHO Project Hubble Space Telescope Follow-Up,,,,N
+longitudinal follow-up,arXiv,Design of a CZT Gamma-Camera for GRB and Fast Tran,,,,N
+longitudinal follow-up,arXiv,The MACHO Project HST Follow-Up: The Large Magella,,,,N
+retrospective analysis,PubMed,Eye bank pre-stripped versus surgeon-stripped graf,,,,N
+retrospective analysis,PubMed,Risk factors for coronary in-stent restenosis in M,68,text_extraction,0.001,Y
+retrospective analysis,PubMed,Comparative evaluation of the CGuard dual-layer st,428,text_extraction,0.052,Y
+retrospective analysis,PubMed,GLP-1 RAs and Cardiovascular and Kidney Outcomes b,156,text_extraction,,Y
+retrospective analysis,PubMed,Increased serologic reactivity with automated CMIA,,,,N
+retrospective analysis,arXiv,Lipschitz Stability Estimate and Uniqueness in the,,,,N
+retrospective analysis,arXiv,Agile Retrospectives: What went well? What didn't ,,,,N
+retrospective analysis,arXiv,Bridging Retrospective and Prospective Merger Anal,,,,N
+retrospective analysis,arXiv,Medillustrator: Improving Retrospective Learning i,,,,N
+retrospective analysis,arXiv,Learning in the Large - An Exploratory Study of Re,109,text_extraction,,Y
+clinical trial oncology,PubMed,Decentralized Clinical Trials in the Era of Real-W,,,,N
+clinical trial oncology,PubMed,Effects of a Dialogic Book-sharing Intervention fo,,,,N
+clinical trial oncology,PubMed,Increasing Awareness and Early Detection of Common,,,0.01,N
+clinical trial oncology,PubMed,An early prediction of postprandial glycemia evolu,,,,N
+clinical trial oncology,PubMed,Cost-Effectiveness of In-Bed Cycling and Routine P,360,text_extraction,,Y
+clinical trial oncology,ClinicalTrials.gov,A Clinical Trial Evaluating the Efficacy of Valgan,220,structured,,Y
+clinical trial oncology,ClinicalTrials.gov,Trial of High Dose Melphalan/Stem Cell Transplant ,3,structured,,Y
+clinical trial oncology,ClinicalTrials.gov,Multi-center Trial of ESK981 in Combination With N,8,structured,,Y
+clinical trial oncology,arXiv,CUI-MET: Clinical Utility Index Dose Optimization ,,,,N
+clinical trial oncology,arXiv,Adaptive Cohort Size Determination Method for Baye,,,,N
+clinical trial oncology,arXiv,Deep Learning Derived Histopathology Image Score f,,,,N
+pediatric study obesity,PubMed,The Muscle Mass Paradox: Elevated Lean Mass Indice,25,text_extraction,0.001,Y
+pediatric study obesity,PubMed,SIRT1 modulation and lipid profile alterations in ,100,text_extraction,,Y
+pediatric study obesity,PubMed,The impact of obesity and overweight on rheumatoid,168,text_extraction,0.026,Y
+pediatric study obesity,PubMed,Effectiveness of Medical Nutrition Therapy in the ,,,,N
+pediatric study obesity,PubMed,Effects of Glucagon-Like Peptide-1 receptor agonis,,,,N
+pediatric study obesity,ClinicalTrials.gov,AFRI Childhood Obesity Prevention Challenge Area,217,structured,,Y
+pediatric study obesity,arXiv,An Interoperable Machine Learning Pipeline for Ped,,,,N
+pediatric study obesity,arXiv,Who will Leave a Pediatric Weight Management Progr,4550,text_extraction,,Y
+pediatric study obesity,arXiv,To What Extent Does the Perceived Obesity Level of,,,,N
+pediatric study obesity,arXiv,Novel brain biomarkers of obesity based on statist,,,,N
+pediatric study obesity,arXiv,DeepHealthNet: Adolescent Obesity Prediction Syste,,,,N
+geriatric intervention dementi,PubMed,The Effect of 6-Week Advanced Oral Care on Oral Mi,,,,N
+geriatric intervention dementi,PubMed,SAFE at Home: A Service to Provide Social Engageme,12,structured,,Y
+geriatric intervention dementi,PubMed,Impact of dementia on outcomes in older patients w,42214,text_extraction,,Y
+geriatric intervention dementi,PubMed,Distinctive Progression Patterns of Brain Structur,,,,N
+geriatric intervention dementi,ClinicalTrials.gov,GOIZ ZAINDU Feasibility Multi Domain Trial to Prev,125,structured,,Y
+geriatric intervention dementi,ClinicalTrials.gov,SAFE at Home: A Service to Provide Social Engageme,12,structured,,Y
+geriatric intervention dementi,arXiv,SAFE at Home: A Service to Provide Social Engageme,12,structured,,Y
+geriatric intervention dementi,arXiv,DEMENTIA-PLAN: An Agent-Based Framework for Multi-,,,,N
+geriatric intervention dementi,arXiv,Recognizing Dementia from Neuropsychological Tests,,,,N
+geriatric intervention dementi,arXiv,State-of-the-Art HCI for Dementia Care: A Scoping ,,,,N
+geriatric intervention dementi,arXiv,Quantum Transfer Learning to Boost Dementia Detect,,,,N
+surgical outcomes,PubMed,Loop Duodenal Switch: Outcomes at One Year,1,structured,,Y
+surgical outcomes,PubMed,Segmentectomies Made Easy series: robotic-assisted,,,,N
+surgical outcomes,PubMed,Segmentectomies Made Easy series: robotic-assisted,,,,N
+surgical outcomes,PubMed,State-Level Variation in and Barriers to Medicaid ,,,,N
+surgical outcomes,PubMed,Re-do VATS for recurrent pneumothorax in a Birt-Ho,,,,N
+surgical outcomes,ClinicalTrials.gov,Loop Duodenal Switch: Outcomes at One Year,1,structured,,Y
+surgical outcomes,arXiv,Predictive Hierarchical Clustering: Learning clust,,,,N
+surgical outcomes,arXiv,Loop Duodenal Switch: Outcomes at One Year,1,structured,,Y
+surgical outcomes,arXiv,SurgWound-Bench: A Benchmark for Surgical Wound Di,,,,N
+surgical outcomes,arXiv,ZEAL: Surgical Skill Assessment with Zero-shot Too,,,,N
+surgical outcomes,arXiv,Enhancing Surgical Performance in Cardiothoracic S,,,,N
+drug efficacy safety,PubMed,Safety and Efficacy Assessment of Trastuzumab Emta,70,text_extraction,,Y
+drug efficacy safety,PubMed,Intravenous thrombolysis before endovascular thera,24,text_extraction,,Y
+drug efficacy safety,PubMed,Lazertinib: A Cardio-Safer Alternative to Osimerti,,,,N
+drug efficacy safety,PubMed,Recent Advances in Renal Denervation Therapy and N,,,,N
+drug efficacy safety,PubMed,Incidence of Phrenic Nerve Palsy in Pediatric Cost,30,text_extraction,,Y
+drug efficacy safety,ClinicalTrials.gov,Safety and Efficacy Study of Aztreonam for Inhalat,274,structured,,Y
+drug efficacy safety,ClinicalTrials.gov,A Clinical Trial Evaluating the Efficacy of Valgan,220,structured,,Y
+drug efficacy safety,arXiv,Detecting adverse high-order drug interactions fro,,,,N
+drug efficacy safety,arXiv,Generation of Drug-Induced Cardiac Reactions towar,,,,N
+drug efficacy safety,arXiv,Large Language Models in Drug Discovery and Develo,,,,N
+drug efficacy safety,arXiv,From Bench to Bedside: A Review of Clinical Trials,,,,N
+drug efficacy safety,arXiv,A clustering and graph deep learning-based framewo,,,,N
+vaccine immunogenicity,PubMed,Safety and Immunogenicity of Recombinant Hepatitis,5000,structured,,Y
+vaccine immunogenicity,PubMed,An NLRP3-stimulatory adjuvant improves the immunog,,,,N
+vaccine immunogenicity,PubMed,Immunogenicity comparison of an,487,text_extraction,,Y
+vaccine immunogenicity,PubMed,Outer Membrane Vesicles as a Versatile Platform fo,,,,N
+vaccine immunogenicity,PubMed,Infant protection from invasive,,,,N
+vaccine immunogenicity,ClinicalTrials.gov,Safety and Immunogenicity of Recombinant Hepatitis,5000,structured,,Y
+vaccine immunogenicity,ClinicalTrials.gov,"Safety, Tolerability, and Immunogenicity of One Do",3,structured,,Y
+vaccine immunogenicity,ClinicalTrials.gov,Study of a Severe Acute Respiratory Syndrome Coron,349,structured,,Y
+vaccine immunogenicity,ClinicalTrials.gov,Immunogenicity and Safety of ADACEL™ as Fifth Dose,115,structured,,Y
+vaccine immunogenicity,ClinicalTrials.gov,"Comparison of Safety, Immuno- and Reactogenicity o",60,structured,,Y
+vaccine immunogenicity,arXiv,Safety and Immunogenicity of Recombinant Hepatitis,5000,structured,,Y
+vaccine immunogenicity,arXiv,Comparing HIV Vaccine Immunogenicity across Trials,,,,N
+vaccine immunogenicity,arXiv,Immunogenicity Prediction with Dual Attention Enab,,,,N
+vaccine immunogenicity,arXiv,Determining vaccine responders in the presence of ,,,,N
+vaccine immunogenicity,arXiv,Design and expression of TolC as a recombinant pro,,,,N
+diagnostic accuracy,PubMed,Does it take more than a static pilot guide to mat,25,text_extraction,0.002,Y
+diagnostic accuracy,PubMed,Ultrasound Video-Based Radiomics Analysis for Diff,346,text_extraction,,Y
+diagnostic accuracy,PubMed,A novel digital workflow for immediately loaded fu,14,text_extraction,,Y
+diagnostic accuracy,PubMed,Distinctive Progression Patterns of Brain Structur,,,,N
+diagnostic accuracy,PubMed,Segmentectomies Made Easy series: robotic-assisted,,,,N
+diagnostic accuracy,arXiv,Examining the Association between Estimated Preval,,,,N
+diagnostic accuracy,arXiv,Combining Insights From Multiple Large Language Mo,,,,N
+diagnostic accuracy,arXiv,Flexible combination of multiple diagnostic biomar,,,,N
+diagnostic accuracy,arXiv,Complex System Diagnostics Using a Knowledge Graph,,,,N
+diagnostic accuracy,arXiv,How Reliable are Model Diagnostics?,,,,N
+therapeutic intervention,PubMed,Effects of a Dialogic Book-sharing Intervention fo,,,,N
+therapeutic intervention,PubMed,Using Theory-Based Frameworks to Identify Barriers,,,,N
+therapeutic intervention,PubMed,Optimizing Availability and Appropriate Use of Ass,,,,N
+therapeutic intervention,ClinicalTrials.gov,Effects of a Dialogic Book-sharing Intervention fo,,,,N
+therapeutic intervention,arXiv,"A PBN-RL-XAI Framework for Discovering a ""Hit-and-",,,,N
+therapeutic intervention,arXiv,Conversational Agents in Therapeutic Interventions,,,,N
+therapeutic intervention,arXiv,Measuring and modeling interventions in aging,,,,N
+therapeutic intervention,arXiv,Why one-size-fits-all vaso-modulatory intervention,,,,N
+therapeutic intervention,arXiv,Supporting Therapeutic Relationships and Communica,,,,N

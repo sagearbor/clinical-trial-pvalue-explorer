@@ -1,0 +1,123 @@
+Run,PMID/ID,Source,Title,API_sample_size,API_sample_size_method,API_p_value,Current_Extraction,Numbers_in_Abstract,Abstract_Excerpt,Issue,Pattern_Match
+1,40919825,Pubmed,Safety and efficacy of remimazolam combined with alfentanil ,59,text_extraction,0.003,59,"118,59,115",d trial. A total of 118 patients who underw,,num_patients
+1,40920460,Pubmed,Effects of a Dialogic Book-sharing Intervention for Female C,,,,,,,NO_N_IN_TEXT,
+1,40920442,Pubmed,Increasing Awareness and Early Detection of Common Skin Dise,,,0.01,,,,NO_N_IN_TEXT,
+1,40920232,Pubmed,Intravenous thrombolysis before endovascular therapy for acu,24,text_extraction,,24,"3294,3294,24","ies with a total of 3,294 patients: 1,860 (56",,num_patients
+1,40920222,Pubmed,Effects of exercise on fatigue and quality of life in multip,31,text_extraction,0.023,31,"1232,31","ed trials involving 1,232 patients with multi",,num_patients
+1,40919901,Pubmed,Preoperative patient education in vascular surgery.,654,text_extraction,,654,654, aids. Six studies (654 patients) met inclu,,num_patients
+1,40920258,Pubmed,Eye bank pre-stripped versus surgeon-stripped graft for Desc,,,,,,,NO_N_IN_TEXT,
+1,40920044,Pubmed,Effects of intravenous laser irradiation on viral load and T,13,text_extraction,0.173,13,"15,13",ervention (ILIB n = 15) and control (CTRL ,,n_equals
+1,40920382,Pubmed,Cost-Effectiveness of In-Bed Cycling and Routine Physiothera,360,text_extraction,,360,360,CLE trial recruited 360 patients (mean [SD],,num_patients
+1,Applicability of 3D-,Clinicaltrials,Applicability of 3D-HDRA in Patients With Primary Liver Canc,144,structured,,,,,,
+1,40920460,Clinicaltrials,Effects of a Dialogic Book-sharing Intervention for Female C,,,,,,,NO_N_IN_TEXT,
+1,40920442,Clinicaltrials,Increasing Awareness and Early Detection of Common Skin Dise,,,0.01,,,,NO_N_IN_TEXT,
+1,40920232,Clinicaltrials,Intravenous thrombolysis before endovascular therapy for acu,24,text_extraction,,24,"3294,3294,24","ies with a total of 3,294 patients: 1,860 (56",,num_patients
+1,40920258,Clinicaltrials,Eye bank pre-stripped versus surgeon-stripped graft for Desc,,,,,,,NO_N_IN_TEXT,
+1,A Clinical Trial Eva,Clinicaltrials,A Clinical Trial Evaluating the Efficacy of Valganciclovir i,220,structured,,,,,,
+1,40920382,Clinicaltrials,Cost-Effectiveness of In-Bed Cycling and Routine Physiothera,360,text_extraction,,360,360,CLE trial recruited 360 patients (mean [SD],,num_patients
+1,2401.03693v1,Arxiv,TAD-SIE: Sample Size Estimation for Clinical Randomized Cont,,,,,,,NO_N_IN_TEXT,
+1,1303.2803v2,Arxiv,Explaining temporal trends in annualized relapse rates in pl,,,0.001,,,,NO_N_IN_TEXT,
+1,2508.01052v1,Arxiv,A Comparative Evaluation of Statistical Methods in Hybrid Co,,,,,,,NO_N_IN_TEXT,
+1,2503.06864v1,Arxiv,Doubly robust omnibus sensitivity analysis of externally con,,,,,,,NO_N_IN_TEXT,
+1,2405.10026v3,Arxiv,"Ideal trials, target trials and actual randomized trials",,,,,,,NO_N_IN_TEXT,
+1,2410.11713v3,Arxiv,Enhancing Statistical Validity and Power in Hybrid Controlle,,,,,,,NO_N_IN_TEXT,
+1,2303.16299v2,Arxiv,Comparison of Methods that Combine Multiple Randomized Trial,,,,,,,NO_N_IN_TEXT,
+1,2203.10128v1,Arxiv,A matching design for augmenting a randomized clinical trial,,,,,,,NO_N_IN_TEXT,
+1,2406.17971v3,Arxiv,Robust integration of external control data in randomized tr,,,,,,,NO_N_IN_TEXT,
+1,2406.04505v2,Arxiv,Causal Inference in Randomized Trials with Partial Clusterin,,,,,,,NO_N_IN_TEXT,
+2,40920390,Pubmed,Decentralized Clinical Trials in the Era of Real-World Evide,,,,,,,NO_N_IN_TEXT,
+2,40920460,Pubmed,Effects of a Dialogic Book-sharing Intervention for Female C,,,,,,,NO_N_IN_TEXT,
+2,40920442,Pubmed,Increasing Awareness and Early Detection of Common Skin Dise,,,0.01,,,,NO_N_IN_TEXT,
+2,40920326,Pubmed,An early prediction of postprandial glycemia evolution using,,,,,,,NO_N_IN_TEXT,
+2,Trial of High Dose M,Pubmed,Trial of High Dose Melphalan/Stem Cell Transplant With or Wi,3,structured,,,,,,
+2,40920232,Pubmed,Intravenous thrombolysis before endovascular therapy for acu,24,text_extraction,,24,"3294,3294,24","ies with a total of 3,294 patients: 1,860 (56",,num_patients
+2,40920382,Pubmed,Cost-Effectiveness of In-Bed Cycling and Routine Physiothera,360,text_extraction,,360,360,CLE trial recruited 360 patients (mean [SD],,num_patients
+2,40920242,Pubmed,"Construct validity, intrarater and interrater reliability of",,,0.002,,,,NO_N_IN_TEXT,
+2,40920056,Pubmed,From slime to sublime: the impact of snail mucin on scar the,,,,,,,NO_N_IN_TEXT,
+2,40920288,Pubmed,Switching Patients with Schizophrenia from Intramuscular Pal,5000,text_extraction,,5000,5000,tual populations of 5000 patients. TAM expos,,num_patients
+2,A Clinical Trial Eva,Clinicaltrials,A Clinical Trial Evaluating the Efficacy of Valganciclovir i,220,structured,,,,,,
+2,Evaluating the Impac,Clinicaltrials,Evaluating the Impact of Incentives on Clinical Trial Partic,360,structured,,,,,,
+2,40920390,Clinicaltrials,Decentralized Clinical Trials in the Era of Real-World Evide,,,,,,,NO_N_IN_TEXT,
+2,40920460,Clinicaltrials,Effects of a Dialogic Book-sharing Intervention for Female C,,,,,,,NO_N_IN_TEXT,
+2,40920442,Clinicaltrials,Increasing Awareness and Early Detection of Common Skin Dise,,,0.01,,,,NO_N_IN_TEXT,
+2,40920326,Clinicaltrials,An early prediction of postprandial glycemia evolution using,,,,,,,NO_N_IN_TEXT,
+2,Trial of High Dose M,Clinicaltrials,Trial of High Dose Melphalan/Stem Cell Transplant With or Wi,3,structured,,,,,,
+2,Multi-center Trial o,Clinicaltrials,Multi-center Trial of ESK981 in Combination With Nivolumab i,8,structured,,,,,,
+2,A Clinical Study of ,Clinicaltrials,A Clinical Study of Omalizumab in the Treatment of Allergic ,300,structured,,,,,,
+2,40920382,Clinicaltrials,Cost-Effectiveness of In-Bed Cycling and Routine Physiothera,360,text_extraction,,360,360,CLE trial recruited 360 patients (mean [SD],,num_patients
+2,2505.10780v1,Arxiv,SECRET: Semi-supervised Clinical Trial Document Similarity S,,,,,,,NO_N_IN_TEXT,
+2,2503.15718v1,Arxiv,Am I eligible? Natural Language Inference for Clinical Trial,,,,,,,NO_N_IN_TEXT,
+2,2407.11007v1,Arxiv,"Panacea: A foundation model for clinical trial search, summa",,,,,,,NO_N_IN_TEXT,
+2,2409.07089v2,Arxiv,TrialSynth: Generation of Synthetic Sequential Clinical Tria,,,,,,,NO_N_IN_TEXT,
+2,2408.10995v1,Arxiv,CTP-LLM: Clinical Trial Phase Transition Prediction Using La,,,,,,,NO_N_IN_TEXT,
+2,2406.10292v3,Arxiv,Automatically Labeling Clinical Trial Outcomes: A Large-Scal,,,,,,,NO_N_IN_TEXT,
+2,2410.12476v2,Arxiv,Retrieval-Reasoning Large Language Model-based Synthetic Cli,,,,,,,NO_N_IN_TEXT,
+2,2412.09378v2,Arxiv,From Bench to Bedside: A Review of Clinical Trials in Drug D,,,,,,,NO_N_IN_TEXT,
+2,2405.06662v1,Arxiv,Language Interaction Network for Clinical Trial Approval Est,,,,,,,NO_N_IN_TEXT,
+2,2304.05352v1,Arxiv,SPOT: Sequential Predictive Modeling of Clinical Trial Outco,,,,,,,NO_N_IN_TEXT,
+3,40920313,Pubmed,A study of tertiary hyperparathyroidism.,,,,,,,NO_N_IN_TEXT,
+3,40920453,Pubmed,Metastatic Breast Cancer mHealth App to Promote Patient-Prov,25,text_extraction,,25,"25,25,15",nvenience sample of 25 patients with MBC a,,num_patients
+3,40920446,Pubmed,Real-Time Exposure to Alcohol Content in Digital Media in Ad,302,text_extraction,,302,"302,16","ODS: Adolescents (N=302; 31.8% boys, 16.2% ",,n_equals
+3,40920322,Pubmed,Risk factors for coronary in-stent restenosis in Moroccan pa,68,text_extraction,0.001,68,68,stent restenosis in 68 patients equally di,,num_patients
+3,40920319,Pubmed,Hormonal receptor status and lymph nodes involvement in brea,,,,,,,NO_N_IN_TEXT,
+3,40920381,Pubmed,Long-Term Survival Among Children With Trisomy 13 and Trisom,25,text_extraction,0.001,25,"295,503,295",ears) with T13 (n = 295) or T18 (n = 503). ,,n_equals
+3,40920380,Pubmed,Social Participation and Depressive Symptoms Among Older Adu,5762,text_extraction,,5762,"5762,65",72.40 (5.15) years; 5762 men [51.7%]; 15.7% ,,num_men_women
+3,40920377,Pubmed,GLP-1 RAs and Cardiovascular and Kidney Outcomes by Body Mas,156,text_extraction,,156,"156,7200",. RESULTS: Among 97 156 patients with diabe,,num_patients
+3,40920326,Pubmed,An early prediction of postprandial glycemia evolution using,,,,,,,NO_N_IN_TEXT,
+3,Multiple Ascending D,Clinicaltrials,Multiple Ascending Dose Study of HM12460A in Type 2 Diabetes,21,structured,,,,,,
+3,2509.01829v1,Arxiv,Cohort-Anchored Robust Inference for Event-Study with Stagge,,,,,,,NO_N_IN_TEXT,
+3,2310.15070v1,Arxiv,"Improving estimation efficiency of case-cohort study with
+  ",,,,,,,NO_N_IN_TEXT,
+3,2012.12839v2,Arxiv,Cohorting to isolate asymptomatic spreaders: An agent-based ,,,,,,,NO_N_IN_TEXT,
+3,2302.06088v1,Arxiv,Adaptive Cohort Size Determination Method for Bayesian Optim,,,,,,,NO_N_IN_TEXT,
+3,2503.17606v1,Arxiv,Combining longitudinal cohort studies to examine cardiovascu,,,,,,,NO_N_IN_TEXT,
+3,2412.11472v1,Arxiv,Leveraging Foundation Language Models (FLMs) for Automated C,,,,,,,NO_N_IN_TEXT,
+3,2405.15644v2,Arxiv,Harnessing Increased Client Participation with Cohort-Parall,,,,,,,NO_N_IN_TEXT,
+3,2301.04889v1,Arxiv,Artificial intelligence for diagnosing and predicting surviv,,,0.0001,,,,NO_N_IN_TEXT,
+3,2211.00407v1,Arxiv,Missing data interpolation in integrative multi-cohort analy,,,,,,,NO_N_IN_TEXT,
+3,2208.09237v1,Arxiv,CohortVA: A Visual Analytic System for Interactive Explorati,,,,,,,NO_N_IN_TEXT,
+4,40920322,Pubmed,Risk factors for coronary in-stent restenosis in Moroccan pa,68,text_extraction,0.001,68,68,stent restenosis in 68 patients equally di,,num_patients
+4,40920317,Pubmed,SIRT1 modulation and lipid profile alterations in the cellul,100,text_extraction,,100,"100,100", the study included 100 participants divide,,num_participants
+4,40920319,Pubmed,Hormonal receptor status and lymph nodes involvement in brea,,,,,,,NO_N_IN_TEXT,
+4,A Clinical Study of ,Pubmed,A Clinical Study of Omalizumab in the Treatment of Allergic ,300,structured,,,,,,
+4,40920238,Pubmed,Timing of surgery and outcomes in patients with congenital p,105,text_extraction,,105,28,s into those aged < 28 days (neonatal grou,,aged_num
+4,40920314,Pubmed,Salivary interleukin-17A and interleukin-18 as potential bio,,,0.05,,,,NO_N_IN_TEXT,
+4,40920381,Pubmed,Long-Term Survival Among Children With Trisomy 13 and Trisom,25,text_extraction,0.001,25,"295,503,295",ears) with T13 (n = 295) or T18 (n = 503). ,,n_equals
+4,40920316,Pubmed,Expression analysis of C-FOS and XRCC3 Thr241Met polymorphis,,,0.001,,100,markers. A total of 100 gastric cancer pati,MISSED_EXTRACTION,total_of
+4,40920266,Pubmed,Increased serologic reactivity with automated CMIA testing a,,,,,,,NO_N_IN_TEXT,
+4,40920377,Pubmed,GLP-1 RAs and Cardiovascular and Kidney Outcomes by Body Mas,156,text_extraction,,156,"156,7200",. RESULTS: Among 97 156 patients with diabe,,num_patients
+4,A Clinical Study of ,Clinicaltrials,A Clinical Study of Omalizumab in the Treatment of Allergic ,300,structured,,,,,,
+4,Minnesota RETAIN Pha,Clinicaltrials,Minnesota RETAIN Phase 2 (Sub-study),5200,structured,,,,,,
+4,2506.10203v1,Arxiv,Formalizing Neuromorphic Control Systems: A General Proposal,,,,,,,NO_N_IN_TEXT,
+4,2401.04508v1,Arxiv,Data-driven Nonlinear Model Reduction using Koopman Theory: ,,,,,,,NO_N_IN_TEXT,
+4,2211.08080v1,Arxiv,Embedded Model Control of Networked Control Systems: an Expe,,,,,,,NO_N_IN_TEXT,
+4,2403.00093v1,Arxiv,Synthesizing study-specific controls using generative models,,,,,,,NO_N_IN_TEXT,
+4,2405.20655v1,Arxiv,Statistical inference for case-control logistic regression v,,,,,,,NO_N_IN_TEXT,
+4,2402.18269v1,Arxiv,Control sets of linear control systems on $\R^2$. The real c,,,,,,,NO_N_IN_TEXT,
+4,2010.07204v2,Arxiv,Incorporating survival data into case-control studies with i,,,,,,,NO_N_IN_TEXT,
+4,1605.05232v2,Arxiv,Switching in time-optimal problem. The 3-D case with 2-D con,,,,,,,NO_N_IN_TEXT,
+4,2202.11545v1,Arxiv,Accessibility Properties of Abnormal Geodesics in Optimal Co,,,,,,,NO_N_IN_TEXT,
+4,2010.13316v3,Arxiv,Solar PV Frequency Control in the U.S. EI and ERCOT Intercon,,,,,,,NO_N_IN_TEXT,
+5,40920232,Pubmed,Intravenous thrombolysis before endovascular therapy for acu,24,text_extraction,,24,"3294,3294,24","ies with a total of 3,294 patients: 1,860 (56",,num_patients
+5,40920222,Pubmed,Effects of exercise on fatigue and quality of life in multip,31,text_extraction,0.023,31,"1232,31","ed trials involving 1,232 patients with multi",,num_patients
+5,40920258,Pubmed,Eye bank pre-stripped versus surgeon-stripped graft for Desc,,,,,,,NO_N_IN_TEXT,
+5,40919905,Pubmed,Retraction of article: Effectiveness and safety of Bifidobac,,,,,,,NO_N_IN_TEXT,
+5,40919915,Pubmed,The go/no-go successive matching task and the emergence of a,,,,,22,-humans. A total of 22 articles were analy,MISSED_EXTRACTION,total_of
+5,40919901,Pubmed,Preoperative patient education in vascular surgery.,654,text_extraction,,654,654, aids. Six studies (654 patients) met inclu,,num_patients
+5,40920292,Pubmed,Published Population Pharmacokinetic Models of Imatinib Perf,39,text_extraction,,39,"39,39",eloid leukemia (N = 39) treated with imati,,n_equals
+5,40920243,Pubmed,Isolated spinal aneurysms with spontaneous regression.,164,text_extraction,,164,"164,48,51",n the literature in 164 patients (mean age ,,num_patients
+5,40919724,Pubmed,Opioid agonist therapy for opioid use disorder in primary ve,428,text_extraction,,428,"1992,1952,428",even RCTs involving 1992 participants. The s,,num_participants
+5,40920315,Pubmed,Donor site healing in follicular unit extraction hair transp,,,,,,,NO_N_IN_TEXT,
+5,Umbrella Review and ,Clinicaltrials,Umbrella Review and Updated Systematic Review and Meta-analy,1,structured,,,,,,
+5,2408.01450v1,Arxiv,A systematic review and analysis of the viability of virtual,,,,,36,"his review analyzed 36
+peer-reviewed journ",MISSED_EXTRACTION,analyzed_num
+5,2306.17614v1,Arxiv,Outcome-based Evaluation of Systematic Review Automation,,,,,,,NO_N_IN_TEXT,
+5,2103.12227v1,Arxiv,Challenges in systematic reviews and meta-analyses of mediat,,,,,,,NO_N_IN_TEXT,
+5,1609.01017v1,Arxiv,Crowdsourcing Information Extraction for Biomedical Systemat,,,,,,,NO_N_IN_TEXT,
+5,1709.06758v4,Arxiv,A shared latent space matrix factorisation method for recomm,537,text_extraction,,537,537,"tes, which
+included 537 clinical trials tha",,included_num
+5,2504.20276v1,Arxiv,Enhancing Systematic Reviews with Large Language Models: Usi,,,,,,,NO_N_IN_TEXT,
+5,2504.04193v1,Arxiv,AiReview: An Open Platform for Accelerating Systematic Revie,,,,,,,NO_N_IN_TEXT,
+5,2502.00244v1,Arxiv,"Measuring the Mental Health of Content Reviewers, a Systemat",,,,,,,NO_N_IN_TEXT,
+5,2503.09510v1,Arxiv,Automating Code Review: A Systematic Literature Review,,,,,,,NO_N_IN_TEXT,
+5,2302.03495v3,Arxiv,Can ChatGPT Write a Good Boolean Query for Systematic Review,,,,,,,NO_N_IN_TEXT,

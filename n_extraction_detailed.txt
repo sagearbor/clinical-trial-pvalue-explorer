@@ -1,0 +1,64 @@
+N EXTRACTION DETAILED ANALYSIS
+================================================================================
+
+
+RUN 1
+----------------------------------------
+
+
+Run 1 Statistics:
+  Extraction rate: 10/26
+
+RUN 2
+----------------------------------------
+
+
+Run 2 Statistics:
+  Extraction rate: 10/30
+
+RUN 3
+----------------------------------------
+
+
+Run 3 Statistics:
+  Extraction rate: 7/20
+
+RUN 4
+----------------------------------------
+
+MISSED: Expression analysis of C-FOS and XRCC3 Thr241Met polymorphis
+  Source: Pubmed
+  PMID: 40920316
+  Numbers found: [100]
+  Patterns: ['total_of']
+  Context: markers. A total of 100 gastric cancer pati
+
+
+Run 4 Statistics:
+  Extraction rate: 8/22
+
+Suggested improvements for Run 5:
+
+RUN 5
+----------------------------------------
+
+MISSED: The go/no-go successive matching task and the emergence of a
+  Source: Pubmed
+  PMID: 40919915
+  Numbers found: [22]
+  Patterns: ['total_of']
+  Context: -humans. A total of 22 articles were analy
+
+MISSED: A systematic review and analysis of the viability of virtual
+  Source: Arxiv
+  PMID: None
+  Numbers found: [36]
+  Patterns: ['analyzed_num']
+  Context: his review analyzed 36
+peer-reviewed journ
+
+
+Run 5 Statistics:
+  Extraction rate: 8/21
+
+Suggested improvements for Run 6:

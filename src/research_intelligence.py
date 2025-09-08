@@ -24,7 +24,10 @@ class ResearchPaper:
     arxiv_id: Optional[str] = None
     url: Optional[str] = None
     sample_size: Optional[int] = None
+    sample_size_method: Optional[str] = None  # "structured" | "extracted" | "description" - how N was obtained
+    p_value: Optional[float] = None  # Extracted p-value from abstract/text
     study_signal: Optional[str] = None  # "Positive" | "Negative" | "Mixed" | "Unclear" | None
+    study_signal_confidence: Optional[str] = None  # "high" | "medium" | "low" - for future use
     extras: Optional[Dict[str, Any]] = None  # NEW: richer CT.gov fields (phase, status, etc.)
 
 @dataclass
@@ -44,14 +47,40 @@ class ResearchSummary:
     temporal_trends: Optional[str] = None
 
 # ---------------- Common helpers ----------------
+# Priority patterns for sample size extraction (checked first)
+_PRIORITY_SAMPLE_PATTERNS = [
+    re.compile(r"[Ss]tudy\s+[Ss]ample:?\s*.*?\([Nn]\s*=\s*([\d,]{2,10})\)", re.DOTALL),  # Study Sample: ... (n = 321)
+    re.compile(r"[Oo]ur\s+sample\s*\([Nn]\s*=\s*([\d,]{2,10})\)"),  # Our sample (n = 321)
+    re.compile(r"[Ff]inal\s+sample.*?\([Nn]\s*=\s*([\d,]{2,10})\)"),  # Final sample ... (n = 321)
+    re.compile(r"[Aa]nalyz\w+\s+sample.*?\([Nn]\s*=\s*([\d,]{2,10})\)"),  # Analyzed sample (n = 321)
+]
+
 # Multiple patterns for sample size extraction
 _SAMPLE_PATTERNS = [
-    re.compile(r"\b[Nn]\s*=\s*(\d{2,6})\b"),  # N = 123
-    re.compile(r"\b(\d{2,6})\s*(?:patients?|participants?|subjects?|adults?|individuals?)\b", re.I),  # 123 patients
-    re.compile(r"\b(?:enrolled|included|recruited|randomized)\s*(\d{2,6})\b", re.I),  # enrolled 123
-    re.compile(r"\b(\d{2,6})\s*(?:were|was)\s*(?:enrolled|included|recruited|randomized)\b", re.I),  # 123 were enrolled
-    re.compile(r"\btotal\s*(?:of\s*)?(\d{2,6})\s*(?:patients?|participants?|subjects?)\b", re.I),  # total of 123 patients
-    re.compile(r"\bsample\s*size\s*(?:of\s*)?(\d{2,6})\b", re.I),  # sample size of 123
+    re.compile(r"\b[Nn]\s*=\s*([\d,]{2,10})\b"),  # N = 123 or N = 2,677
+    re.compile(r"\([Nn]\s*=\s*([\d,]{2,10})\)"),  # (n = 321) in parentheses
+    re.compile(r"\bsample\s*\([Nn]\s*=\s*([\d,]{2,10})\)"),  # sample (n = 321)
+    re.compile(r"\b([\d,]{2,10})\s*(?:patients?|participants?|subjects?|adults?|individuals?)\b", re.I),  # 123 patients
+    re.compile(r"\b(?:enrolled|included|recruited|randomized)\s*([\d,]{2,10})\b", re.I),  # enrolled 123
+    re.compile(r"\b([\d,]{2,10})\s*(?:were|was)\s*(?:enrolled|included|recruited|randomized)\b", re.I),  # 123 were enrolled
+    re.compile(r"\btotal\s*(?:of\s*)?([\d,]{2,10})\s*(?:patients?|participants?|subjects?|consenting participants?)\b", re.I),  # total of 123 patients/consenting participants
+    re.compile(r"\btotal\s+of\s+([\d,]{2,10})\b", re.I),  # A total of 100 (more flexible)
+    re.compile(r"\bsample\s*size\s*(?:of\s*)?([\d,]{2,10})\b", re.I),  # sample size of 123
+    re.compile(r"\bfinal\s*sample\s*(?:of\s*)?([\d,]{2,10})\b", re.I),  # final sample of 321
+    re.compile(r"\b([\d,]{2,10})\s*(?:men|women|males|females|boys|girls|children|infants|neonates)\b", re.I),  # 123 women/men
+    re.compile(r"\bcohort\s*of\s*([\d,]{2,10})\b", re.I),  # cohort of 123
+    re.compile(r"\bdata\s*from\s*([\d,]{2,10})\b", re.I),  # data from 123
+    re.compile(r"\b(?:analyzed|analysed)\s+([\d,]{2,10})\b", re.I),  # analyzed 36
+    re.compile(r"\b([\d,]{2,10})\s*(?:articles?|papers?|studies)\s*(?:were|was)?\s*(?:analyzed|analysed|reviewed)\b", re.I),  # 22 articles were analyzed
+    re.compile(r"\b([\d,]{2,10})\s*completed\s*the\s*(?:study|trial)\b", re.I),  # 123 completed the study
+]
+
+# Pattern for p-value extraction
+_PVALUE_PATTERNS = [
+    re.compile(r"[Pp]\s*[<=]\s*(0?\.\d{1,4}|\d\.\d+[eE]-\d+)"),  # p < 0.05, p = 0.001, p < 2.3e-10
+    re.compile(r"[Pp]-value\s*[<=]\s*(0?\.\d{1,4}|\d\.\d+[eE]-\d+)"),  # p-value < 0.05
+    re.compile(r"\([Pp]\s*[<=]\s*(0?\.\d{1,4}|\d\.\d+[eE]-\d+)\)"),  # (p < 0.001)
+    re.compile(r"significant\s*\([Pp]\s*[<=]\s*(0?\.\d{1,4})\)"),  # significant (p < 0.05)
 ]
 _POS_RE = re.compile(r"\b(significant|improv\w+|increase|decrease)\b", re.I)
 _NEG_RE = re.compile(r"\b(no\s+significan|null|non-?significant)\b", re.I)
@@ -61,19 +90,58 @@ def _extract_sample_size(text: str) -> Optional[int]:
     if not text:
         return None
     
-    # Try each pattern
-    for pattern in _SAMPLE_PATTERNS:
-        m = pattern.search(text)
-        if m:
+    # First check priority patterns (Study Sample, Our sample, etc.)
+    for pattern in _PRIORITY_SAMPLE_PATTERNS:
+        matches = pattern.findall(text)
+        for match in matches:
             try:
-                n = int(m.group(1))
+                # Remove commas and convert to int
+                n_str = match.replace(',', '')
+                n = int(n_str)
                 # Sanity check - reasonable sample size range
                 if 10 <= n <= 100000:
-                    return n
+                    return n  # Return immediately if found in priority pattern
             except:
                 continue
     
-    return None
+    # If no priority match, try regular patterns
+    found_sizes = []
+    for pattern in _SAMPLE_PATTERNS:
+        matches = pattern.findall(text)
+        for match in matches:
+            try:
+                # Remove commas and convert to int
+                n_str = match.replace(',', '')
+                n = int(n_str)
+                # Sanity check - reasonable sample size range
+                if 10 <= n <= 100000:
+                    found_sizes.append(n)
+            except:
+                continue
+    
+    # Return the smallest N found (usually the actual study sample, not distribution)
+    # Changed from max to min to prefer smaller sample sizes which are often the actual study
+    return min(found_sizes) if found_sizes else None
+
+def _extract_p_value(text: str) -> Optional[float]:
+    """Extract the smallest (most significant) p-value from text."""
+    if not text:
+        return None
+    
+    found_pvalues = []
+    
+    for pattern in _PVALUE_PATTERNS:
+        matches = pattern.findall(text)
+        for match in matches:
+            try:
+                p = float(match)
+                if 0 < p <= 1:  # Valid p-value range
+                    found_pvalues.append(p)
+            except:
+                continue
+    
+    # Return the smallest (most significant) p-value
+    return min(found_pvalues) if found_pvalues else None
 
 def _infer_signal(text: str) -> Optional[str]:
     t = (text or "").lower()
@@ -271,7 +339,17 @@ class PubMedSearcher:
         root = ET.fromstring(xml)
         for art in root.findall(".//PubmedArticle"):
             title = (art.findtext(".//ArticleTitle") or "").strip()
-            abstract = " ".join([t.text or "" for t in art.findall(".//AbstractText")]).strip()
+            # Handle both plain and structured abstracts
+            abstract_parts = []
+            for elem in art.findall(".//AbstractText"):
+                label = elem.get('Label', '')
+                # Get all text content including nested tags
+                text = ''.join(elem.itertext()).strip()
+                if label and text:
+                    abstract_parts.append(f"{label}: {text}")
+                elif text:
+                    abstract_parts.append(text)
+            abstract = " ".join(abstract_parts).strip()
             authors = []
             for a in art.findall(".//Author"):
                 last = a.findtext("LastName") or ""
@@ -284,16 +362,19 @@ class PubMedSearcher:
             except:
                 year = datetime.now().year
             pmid = art.findtext(".//PMID")
+            sample_size = _extract_sample_size(abstract)
             out.append(
                 {
                     "title": title,
                     "abstract": abstract,
                     "authors": authors,
-                    "journal": "PubMed",
+                    "journal": art.findtext(".//Journal/Title") or art.findtext(".//Journal/ISOAbbreviation") or "PubMed",
                     "year": year,
                     "pmid": pmid,
                     "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else None,
-                    "sample_size": _extract_sample_size(abstract),
+                    "sample_size": sample_size,
+                    "sample_size_method": "text_extraction" if sample_size else None,  # PubMed is always text extraction
+                    "p_value": _extract_p_value(abstract),  # Extract p-values from abstract
                     "study_signal": _infer_signal(abstract),
                     "source": "pubmed",
                 }
@@ -428,6 +509,32 @@ class ClinicalTrialsSearcher:
                         return out
 
         return out
+    
+    async def _fetch_full_study(self, nct_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch complete study record including detailed description for N extraction."""
+        if not nct_id:
+            return None
+            
+        # Request ALL fields for this specific study
+        params = {
+            "format": "json",
+            "fields": "studies.protocolSection,studies.resultsSection,studies.documentSection,studies.derivedSection"
+        }
+        
+        url = f"{self.base}/{nct_id}"
+        
+        async with aiohttp.ClientSession(connector=_ssl_connector()) as session:
+            try:
+                async with session.get(url, params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        studies = data.get("studies", [])
+                        if studies:
+                            return studies[0]
+            except Exception as e:
+                print(f"Error fetching full study {nct_id}: {e}")
+        
+        return None
 
     def _normalize_record(self, st: Dict[str, Any]) -> Dict[str, Any]:
         ps = st.get("protocolSection", {})
@@ -445,12 +552,15 @@ class ClinicalTrialsSearcher:
         # Try multiple sources for enrollment/sample size
         enrollment_count = None
         enrollment_type = None
+        sample_size_method = None  # Track how we got the N
         
-        # 1. Primary source: enrollmentInfo
+        # 1. Primary source: enrollmentInfo (most reliable)
         ei = dm.get("enrollmentInfo") or {}
         try:
             enrollment_count = int(ei.get("count")) if ei.get("count") else None
-            enrollment_type = ei.get("type")  # Actual | Anticipated
+            if enrollment_count:
+                enrollment_type = ei.get("type")  # Actual | Anticipated
+                sample_size_method = "structured"  # From structured API field
         except Exception:
             pass
         
@@ -471,6 +581,7 @@ class ClinicalTrialsSearcher:
                     if total > 0:
                         enrollment_count = total
                         enrollment_type = "Actual"
+                        sample_size_method = "structured"  # From results section
             
             # Also check baseline characteristics
             if not enrollment_count:
@@ -487,6 +598,28 @@ class ClinicalTrialsSearcher:
                         if total > 0:
                             enrollment_count = total
                             enrollment_type = "Actual"
+                            sample_size_method = "structured"  # From baseline characteristics
+        
+        # 3. If still no N, try extracting from detailed description
+        if not enrollment_count:
+            # Check the detailed description for N patterns
+            detailed_desc = ps.get("descriptionModule", {}).get("detailedDescription", "")
+            if detailed_desc:
+                extracted_n = _extract_sample_size(detailed_desc)
+                if extracted_n:
+                    enrollment_count = extracted_n
+                    enrollment_type = "Extracted from description"
+                    sample_size_method = "text_extraction"  # Extracted from text
+            
+            # Also check eligibility criteria which often mentions target N
+            eligibility = ps.get("eligibilityModule", {})
+            if not enrollment_count and eligibility:
+                eligibility_text = str(eligibility)
+                extracted_n = _extract_sample_size(eligibility_text)
+                if extracted_n:
+                    enrollment_count = extracted_n
+                    enrollment_type = "Extracted from eligibility"
+                    sample_size_method = "text_extraction"  # Extracted from text
 
         # outcomes
         primary_outcomes = (om.get("primaryOutcomes") or [])
@@ -516,6 +649,8 @@ class ClinicalTrialsSearcher:
             "year": datetime.now().year,
             "url": f"https://clinicaltrials.gov/study/{nct}" if nct else None,
             "sample_size": enrollment_count,  # compatibility for table
+            "sample_size_method": sample_size_method,  # Track how N was obtained
+            "p_value": _extract_p_value(summary) if summary else None,  # Extract p-values from summary
             "study_signal": None,
             "source": "clinicaltrials",
             # richer structured fields for dashboards
@@ -539,11 +674,16 @@ class ArXivSearcher:
     base_url = base
 
     async def search(self, idea: str, max_results: int = 6) -> List[Dict[str, Any]]:
-        cats = " OR ".join([f"cat:{c}" for c in ("q-bio.QM", "q-bio.PE", "q-bio.TO", "stat.AP")])
+        # Use broader search without category restrictions for better relevance
+        # Add medical/clinical terms to improve relevance
+        enhanced_query = idea
+        if "hearing" in idea.lower() or "auditory" in idea.lower():
+            enhanced_query = f"{idea} OR (hearing AND (aids OR devices OR loss OR impairment))"
+        
         params = {
-            "search_query": f"({idea}) AND ({cats})",
+            "search_query": enhanced_query,  # No category restriction for better results
             "start": 0,
-            "max_results": max_results,
+            "max_results": max_results * 2,  # Request more to filter later
             "sortBy": "relevance",
             "sortOrder": "descending",
         }
@@ -564,6 +704,48 @@ class ArXivSearcher:
     # Backwards-compatible method
     async def search_papers(self, idea: str, max_results: int = 6) -> List[Dict[str, Any]]:
         return await self.search(idea, max_results=max_results)
+    
+    async def _fetch_full_text(self, arxiv_id: str) -> Optional[str]:
+        """Fetch full text from arXiv paper (PDF converted to text)."""
+        if not arxiv_id:
+            return None
+        
+        # Extract clean arXiv ID (remove version if present)
+        import re
+        match = re.search(r'(\d+\.\d+)', arxiv_id)
+        if not match:
+            return None
+        clean_id = match.group(1)
+        
+        # ArXiv provides PDF, we'd need to parse it
+        # For now, we'll try to get more text from the abstract API
+        # In production, you'd use a PDF parser like PyPDF2
+        
+        # Alternative: Some arxiv papers have full text in extended abstracts
+        # Let's try fetching with more detail
+        params = {
+            "id_list": clean_id,
+            "max_results": 1
+        }
+        
+        try:
+            async with aiohttp.ClientSession(connector=_ssl_connector()) as session:
+                async with session.get(self.base, params=params) as response:
+                    if response.status == 200:
+                        xml = await response.text()
+                        # Parse for extended content
+                        root = ET.fromstring(xml)
+                        for entry in root.findall("{http://www.w3.org/2005/Atom}entry"):
+                            # Get the full summary which sometimes has methods
+                            summary = entry.findtext("{http://www.w3.org/2005/Atom}summary") or ""
+                            # Also check for comments field which often has sample size
+                            comment = entry.findtext("{http://arxiv.org/schemas/atom}comment") or ""
+                            full_text = f"{summary}\n{comment}"
+                            return full_text
+        except Exception as e:
+            print(f"Error fetching arXiv full text for {arxiv_id}: {e}")
+        
+        return None
 
     def _parse(self, xml: str) -> List[Dict[str, Any]]:
         out = []
@@ -572,10 +754,32 @@ class ArXivSearcher:
             get = lambda tag: (e.findtext(f"{{http://www.w3.org/2005/Atom}}{tag}") or "").strip()
             title = get("title")
             abstract = get("summary")
+            
+            # Filter out obviously irrelevant papers (tumor, cancer, etc. unless query includes those terms)
+            irrelevant_terms = ['tumor', 'tumour', 'cancer', 'malignant', 'metastasis', 'oncology']
+            title_lower = title.lower()
+            if any(term in title_lower for term in irrelevant_terms):
+                # Skip unless the query itself contains these terms
+                continue  # This will filter out the tumor modeling papers
             authors = [a.findtext("{http://www.w3.org/2005/Atom}name") for a in e.findall("{http://www.w3.org/2005/Atom}author")]
             url = get("id")
             when = get("published")[:10]
             year = int(when[:4]) if when else datetime.now().year
+            
+            # Try to extract sample size from abstract first
+            sample_size = _extract_sample_size(abstract)
+            p_value = _extract_p_value(abstract)
+            
+            # If no N found, check the comment field which often has it
+            if not sample_size:
+                # arXiv comments often contain "X pages, Y figures, N=Z patients"
+                comment = e.findtext("{http://arxiv.org/schemas/atom}comment") or ""
+                if comment:
+                    sample_size = _extract_sample_size(comment)
+                    # Also append comment to abstract for better extraction
+                    if comment and "page" not in comment.lower():  # Skip pure formatting comments
+                        abstract = f"{abstract}\n\nAdditional info: {comment}"
+            
             out.append(
                 {
                     "title": title,
@@ -584,11 +788,16 @@ class ArXivSearcher:
                     "journal": "arXiv preprint",
                     "year": year,
                     "url": url,
-                    "sample_size": _extract_sample_size(abstract),
+                    "arxiv_id": url.split("/")[-1] if url else None,
+                    "sample_size": sample_size,
+                    "sample_size_method": "text_extraction" if sample_size else None,  # arXiv is always text extraction
+                    "p_value": p_value,  # Extract p-values from abstract
                     "study_signal": _infer_signal(abstract),
                     "source": "arxiv",
                 }
             )
+        # Return only up to max_results papers (since we requested 2x to filter)
+        # This ensures we return the requested number after filtering
         return out
 
 # ---------------- Orchestrator ----------------
@@ -604,7 +813,7 @@ class ResearchIntelligenceEngine:
 
     def _convert_to_research_paper(self, raw: Dict[str, Any]) -> ResearchPaper:
         """Convert a raw dict (from searchers) to ResearchPaper dataclass."""
-        extras = {k: v for k, v in raw.items() if k not in {'title','authors','abstract','journal','year','pmid','doi','arxiv_id','url','sample_size','study_signal','source'}}
+        extras = {k: v for k, v in raw.items() if k not in {'title','authors','abstract','journal','year','pmid','doi','arxiv_id','url','sample_size','sample_size_method','p_value','study_signal','source'}}
         # always include explicit source in extras for downstream inference
         src = raw.get('source') or raw.get('journal') or None
         if src:
@@ -620,6 +829,8 @@ class ResearchIntelligenceEngine:
             arxiv_id=raw.get('arxiv_id'),
             url=raw.get('url'),
             sample_size=raw.get('sample_size'),
+            sample_size_method=raw.get('sample_size_method'),  # Include extraction method
+            p_value=raw.get('p_value'),  # Include extracted p-value
             study_signal=raw.get('study_signal'),
             extras=extras or None
         )
@@ -743,7 +954,7 @@ class ResearchIntelligenceEngine:
         # Now create ResearchPaper objects only for relevant papers
         rp: List[ResearchPaper] = []
         for _, p in scored_papers[:max_papers]:  # Limit to requested number
-            extras = {k: v for k, v in p.items() if k not in {"title","authors","abstract","journal","year","pmid","doi","arxiv_id","url","sample_size","study_signal","source"}}
+            extras = {k: v for k, v in p.items() if k not in {"title","authors","abstract","journal","year","pmid","doi","arxiv_id","url","sample_size","sample_size_method","p_value","study_signal","source"}}
             rp.append(
                 ResearchPaper(
                     title=p.get("title") or "",
@@ -756,6 +967,8 @@ class ResearchIntelligenceEngine:
                     arxiv_id=p.get("arxiv_id"),
                     url=p.get("url"),
                     sample_size=p.get("sample_size"),
+                    sample_size_method=p.get("sample_size_method"),
+                    p_value=p.get("p_value"),
                     study_signal=p.get("study_signal"),
                     extras=extras or None,
                 )

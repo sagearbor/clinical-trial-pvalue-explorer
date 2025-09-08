@@ -336,7 +336,8 @@ if analysis:
                 counts_msg = f"Found {len(papers)} structured records" if papers else f"Found {len(refs)} markdown references"
                 st.caption(counts_msg)
 
-                toggle = st.radio("View as", ["List","Table"], horizontal=True, index=0)
+                # Default to Table view (index=1)
+                toggle = st.radio("View as", ["List","Table"], horizontal=True, index=1)
 
                 if toggle == "List":
                     # Prefer markdown list if available, otherwise render titles from structured data
@@ -352,29 +353,76 @@ if analysis:
                             st.markdown(f"- {title_line}")
                 else:
                     # Table view: prefer structured records
+                    wrap_text = st.checkbox("Wrap text in title column", value=False)
+                    
                     if not papers and refs:
                         # best effort: try to parse minimal fields from markdown-ish strings
                         df = pd.DataFrame({"Reference": refs})
                     else:
                         rows = []
+                        has_text_extracted = False
                         for p in papers:
                             authors = p.get('authors') or []
                             if isinstance(authors, list):
                                 auth = ', '.join(authors[:2]) + (' et al.' if len(authors)>2 else '')
                             else:
                                 auth = authors or ''
+                            
+                            # Format sample size with superscript if text-extracted
+                            sample_size = p.get('sample_size')
+                            if sample_size and p.get('sample_size_method') == 'text_extraction':
+                                sample_size = f"{sample_size}¹"
+                                has_text_extracted = True
+                            
+                            # Determine source for grouping/filtering
+                            source = "Unknown"
+                            if "ClinicalTrials.gov" in p.get('journal', ''):
+                                source = "CT.gov"
+                            elif p.get('url', '').startswith('https://pubmed'):
+                                source = "PubMed"
+                            elif 'arxiv' in p.get('url', '').lower():
+                                source = "arXiv"
+                            
                             rows.append({
                                 "Title": p.get('title'),
                                 "Year": p.get('year'),
                                 "Authors": auth,
                                 "Journal": p.get('journal'),
-                                "Sample Size": p.get('sample_size'),
+                                "Source": source,
+                                "N": sample_size,
+                                "p-value": p.get('p_value'),
                                 "Study Signal": p.get('study_signal', 'Unknown'),
-                                "Source": (p.get('journal') or '').split()[0],
                                 "Link": p.get('url')
                             })
                         df = pd.DataFrame(rows)
-                    st.dataframe(df, use_container_width=True, hide_index=True)
+                        
+                        # Configure columns based on wrap_text setting
+                        column_config = {
+                            "Link": st.column_config.LinkColumn(
+                                "Link",
+                                help="Click to open paper",
+                                display_text="View"
+                            )
+                        }
+                        
+                        if not wrap_text:
+                            # Limit title width when not wrapping
+                            column_config["Title"] = st.column_config.TextColumn(
+                                "Title",
+                                max_chars=60,
+                                help="Full title (toggle wrap to see full text)"
+                            )
+                        
+                        st.data_editor(
+                            df,
+                            column_config=column_config,
+                            use_container_width=True,
+                            hide_index=True,
+                            disabled=True  # Make read-only
+                        )
+                        
+                        if has_text_extracted:
+                            st.caption("¹ Sample size extracted from abstract text (may be more prone to incorrect N citation)")
 
 # ---------------- Section 3: Scenarios ----------------
 sc_ok = st.session_state.get('scenario_analysis_complete') and isinstance(st.session_state.get('multi_scenarios'), dict) and st.session_state['multi_scenarios']
