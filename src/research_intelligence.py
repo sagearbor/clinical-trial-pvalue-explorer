@@ -24,10 +24,13 @@ class ResearchPaper:
     arxiv_id: Optional[str] = None
     url: Optional[str] = None
     sample_size: Optional[int] = None
-    sample_size_method: Optional[str] = None  # "structured" | "extracted" | "description" - how N was obtained
+    sample_size_method: Optional[str] = None  # "structured" | "text_extraction" | "llm_extraction" - how N was obtained
+    sample_size_confidence: Optional[float] = None  # 0.0 to 1.0 confidence score
     p_value: Optional[float] = None  # Extracted p-value from abstract/text
     study_signal: Optional[str] = None  # "Positive" | "Negative" | "Mixed" | "Unclear" | None
     study_signal_confidence: Optional[str] = None  # "high" | "medium" | "low" - for future use
+    extraction_details: Optional[Dict[str, Any]] = None  # Rich extraction info (context, alternatives, etc.)
+    extractions_differ: Optional[bool] = None  # True if LLM and regex give different N
     extras: Optional[Dict[str, Any]] = None  # NEW: richer CT.gov fields (phase, status, etc.)
 
 @dataclass
@@ -362,7 +365,33 @@ class PubMedSearcher:
             except:
                 year = datetime.now().year
             pmid = art.findtext(".//PMID")
-            sample_size = _extract_sample_size(abstract)
+            # Try enhanced extraction if available
+            sample_size = None
+            sample_size_method = None
+            sample_size_confidence = 0.0
+            extraction_details = None
+            extractions_differ = False
+            
+            try:
+                from .enhanced_extraction import extract_sample_size_enhanced
+                enhanced_result = extract_sample_size_enhanced(abstract, title)
+                sample_size = enhanced_result.get('sample_size')
+                sample_size_method = enhanced_result.get('auto_selected', 'text_extraction')
+                sample_size_confidence = enhanced_result.get('confidence', 0.0)
+                extraction_details = {
+                    'context': enhanced_result.get('context'),
+                    'alternatives': enhanced_result.get('alternatives'),
+                    'validation_flags': enhanced_result.get('validation_flags'),
+                    'regex_quality': enhanced_result.get('regex_quality_score'),
+                    'llm_quality': enhanced_result.get('llm_quality_score')
+                }
+                extractions_differ = enhanced_result.get('extractions_differ', False)
+            except:
+                # Fallback to simple extraction
+                sample_size = _extract_sample_size(abstract)
+                sample_size_method = "text_extraction" if sample_size else None
+                sample_size_confidence = 0.5 if sample_size else 0.0
+            
             out.append(
                 {
                     "title": title,
@@ -373,9 +402,12 @@ class PubMedSearcher:
                     "pmid": pmid,
                     "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else None,
                     "sample_size": sample_size,
-                    "sample_size_method": "text_extraction" if sample_size else None,  # PubMed is always text extraction
+                    "sample_size_method": sample_size_method,
+                    "sample_size_confidence": sample_size_confidence,
                     "p_value": _extract_p_value(abstract),  # Extract p-values from abstract
                     "study_signal": _infer_signal(abstract),
+                    "extraction_details": extraction_details,
+                    "extractions_differ": extractions_differ,
                     "source": "pubmed",
                 }
             )
@@ -954,7 +986,7 @@ class ResearchIntelligenceEngine:
         # Now create ResearchPaper objects only for relevant papers
         rp: List[ResearchPaper] = []
         for _, p in scored_papers[:max_papers]:  # Limit to requested number
-            extras = {k: v for k, v in p.items() if k not in {"title","authors","abstract","journal","year","pmid","doi","arxiv_id","url","sample_size","sample_size_method","p_value","study_signal","source"}}
+            extras = {k: v for k, v in p.items() if k not in {"title","authors","abstract","journal","year","pmid","doi","arxiv_id","url","sample_size","sample_size_method","sample_size_confidence","p_value","study_signal","extraction_details","extractions_differ","source"}}
             rp.append(
                 ResearchPaper(
                     title=p.get("title") or "",
@@ -968,8 +1000,11 @@ class ResearchIntelligenceEngine:
                     url=p.get("url"),
                     sample_size=p.get("sample_size"),
                     sample_size_method=p.get("sample_size_method"),
+                    sample_size_confidence=p.get("sample_size_confidence"),
                     p_value=p.get("p_value"),
                     study_signal=p.get("study_signal"),
+                    extraction_details=p.get("extraction_details"),
+                    extractions_differ=p.get("extractions_differ"),
                     extras=extras or None,
                 )
             )

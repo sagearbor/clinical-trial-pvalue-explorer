@@ -336,8 +336,20 @@ if analysis:
                 counts_msg = f"Found {len(papers)} structured records" if papers else f"Found {len(refs)} markdown references"
                 st.caption(counts_msg)
 
-                # Default to Table view (index=1)
-                toggle = st.radio("View as", ["List","Table"], horizontal=True, index=1)
+                # View toggle and extraction mode selector
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    # Default to Table view (index=1)
+                    toggle = st.radio("View as", ["List","Table"], horizontal=True, index=1)
+                with col2:
+                    # Extraction mode selector (only if papers have enhanced extraction)
+                    if papers and any(p.get('extraction_details') for p in papers):
+                        extraction_mode = st.radio(
+                            "N extraction", 
+                            ["Auto (best)", "Regex only", "LLM only"],
+                            horizontal=True,
+                            help="Auto selects based on confidence score"
+                        )
 
                 if toggle == "List":
                     # Prefer markdown list if available, otherwise render titles from structured data
@@ -368,11 +380,32 @@ if analysis:
                             else:
                                 auth = authors or ''
                             
-                            # Format sample size with superscript if text-extracted
+                            # Format sample size with superscripts
                             sample_size = p.get('sample_size')
-                            if sample_size and p.get('sample_size_method') == 'text_extraction':
-                                sample_size = f"{sample_size}¹"
-                                has_text_extracted = True
+                            confidence = p.get('sample_size_confidence')
+                            extractions_differ = p.get('extractions_differ', False)
+                            
+                            if sample_size:
+                                # Add confidence indicator if available
+                                if confidence is not None:
+                                    # Color code based on confidence: high (green), medium (yellow), low (red)
+                                    if confidence >= 0.8:
+                                        conf_indicator = ""  # High confidence, no special marking
+                                    elif confidence >= 0.6:
+                                        sample_size = f"{sample_size}*"  # Medium confidence
+                                    else:
+                                        sample_size = f"{sample_size}**"  # Low confidence
+                                
+                                # Add superscripts based on extraction method
+                                if p.get('sample_size_method') == 'text_extraction':
+                                    sample_size = f"{sample_size}¹"
+                                    has_text_extracted = True
+                                elif p.get('sample_size_method') == 'llm_extraction':
+                                    sample_size = f"{sample_size}ᴸ"  # L for LLM
+                                
+                                # Add ² if extractions differ
+                                if extractions_differ:
+                                    sample_size = f"{sample_size}²"
                             
                             # Determine source for grouping/filtering
                             source = "Unknown"
@@ -421,8 +454,20 @@ if analysis:
                             disabled=True  # Make read-only
                         )
                         
+                        # Show legend for all indicators
+                        legend_items = []
                         if has_text_extracted:
-                            st.caption("¹ Sample size extracted from abstract text (may be more prone to incorrect N citation)")
+                            legend_items.append("¹ Sample size extracted from abstract text (may be more prone to incorrect N citation)")
+                        if any(p.get('sample_size_method') == 'llm_extraction' for p in papers):
+                            legend_items.append("ᴸ Sample size extracted by LLM")
+                        if any(p.get('extractions_differ') for p in papers):
+                            legend_items.append("² Regex and LLM extractions differ")
+                        if any(p.get('sample_size_confidence', 1.0) < 0.8 for p in papers if p.get('sample_size')):
+                            legend_items.append("* Medium confidence (60-79%)")
+                            legend_items.append("** Low confidence (<60%)")
+                        
+                        if legend_items:
+                            st.caption("\n".join(legend_items))
 
 # ---------------- Section 3: Scenarios ----------------
 sc_ok = st.session_state.get('scenario_analysis_complete') and isinstance(st.session_state.get('multi_scenarios'), dict) and st.session_state['multi_scenarios']

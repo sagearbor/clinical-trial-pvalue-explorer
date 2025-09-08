@@ -389,8 +389,11 @@ async def process_idea(item: EnhancedIdeaInput):
                             "journal": p.journal,
                             "sample_size": p.sample_size,
                             "sample_size_method": p.sample_size_method,  # Pass through extraction method
+                            "sample_size_confidence": p.sample_size_confidence if hasattr(p, 'sample_size_confidence') else None,
                             "p_value": p.p_value,  # Pass through extracted p-value
                             "study_signal": p.study_signal,
+                            "extraction_details": p.extraction_details if hasattr(p, 'extraction_details') else None,
+                            "extractions_differ": p.extractions_differ if hasattr(p, 'extractions_differ') else None,
                             "url": p.url,
                             "extras": p.extras,
                             "_inferred_source": src,
@@ -398,7 +401,9 @@ async def process_idea(item: EnhancedIdeaInput):
                         
                         # Debug logging
                         if p.sample_size_method or p.p_value:
-                            print(f"   📊 Paper has fields: sample_size_method={p.sample_size_method}, p_value={p.p_value}")
+                            confidence = p.sample_size_confidence if hasattr(p, 'sample_size_confidence') else None
+                            differ = p.extractions_differ if hasattr(p, 'extractions_differ') else None
+                            print(f"   📊 Paper: method={p.sample_size_method}, conf={confidence:.2f if confidence else 0}, differ={differ}")
                         
                         papers_payload.append(paper_dict)
                     # attach structured data to response so frontend can render table

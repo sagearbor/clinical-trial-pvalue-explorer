@@ -43,3 +43,19 @@ INFO:     127.0.0.1:47462 - "GET /available_tests HTTP/1.1" 200 OK
 INFO:     127.0.0.1:37402 - "POST /process_idea HTTP/1.1" 200 OK
 INFO:     127.0.0.1:37418 - "POST /analyze_scenarios HTTP/1.1" 200 OK
 INFO:     127.0.0.1:37434 - "GET /available_tests HTTP/1.1" 200 OK
+📚 Literature search enabled for: How to help older adults increase uptake of hearin...
+✅ PubMed: Found 8 relevant papers
+   📊 Paper has fields: sample_size_method=text_extraction, p_value=None
+   📊 Paper has fields: sample_size_method=structured, p_value=None
+   📊 Paper has fields: sample_size_method=text_extraction, p_value=None
+   📊 Paper has fields: sample_size_method=structured, p_value=None
+   📊 Paper has fields: sample_size_method=structured, p_value=None
+   📊 Paper has fields: sample_size_method=text_extraction, p_value=0.0001
+   📊 Paper has fields: sample_size_method=text_extraction, p_value=None
+   📊 Paper has fields: sample_size_method=structured, p_value=None
+   📊 Paper has fields: sample_size_method=None, p_value=0.005
+   📊 Paper has fields: sample_size_method=structured, p_value=None
+✅ Found 21 references from web searches
+INFO:     127.0.0.1:37772 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37782 - "POST /analyze_scenarios HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37792 - "GET /available_tests HTTP/1.1" 200 OK
