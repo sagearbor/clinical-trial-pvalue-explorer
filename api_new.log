@@ -49,3 +49,222 @@ INFO:     127.0.0.1:36544 - "GET /available_tests HTTP/1.1" 404 Not Found
 INFO:     127.0.0.1:43076 - "POST /process_idea HTTP/1.1" 200 OK
 INFO:     127.0.0.1:43086 - "POST /analyze_scenarios HTTP/1.1" 200 OK
 INFO:     127.0.0.1:43096 - "GET /available_tests HTTP/1.1" 404 Not Found
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [272875]
+INFO:     Started server process [287708]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'test_complex_scenario.py'. Reloading...
+INFO:     127.0.0.1:35786 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35794 - "GET /available_tests HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [287708]
+INFO:     Started server process [288202]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [288202]
+INFO:     Started server process [288469]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:35362 - "POST /process_idea HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/opt/miniconda3/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/lib/python3.11/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/opt/miniconda3/lib/python3.11/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/lib/python3.11/site-packages/fastapi/routing.py", line 302, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/miniconda3/lib/python3.11/site-packages/fastapi/routing.py", line 213, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dcri/sasusers/home/scb2/gitRepos/clinical-trial-pvalue-explorer/src/api.py", line 220, in process_idea
+    llm = await get_llm_enhanced_analysis_gemini(item.study_description)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dcri/sasusers/home/scb2/gitRepos/clinical-trial-pvalue-explorer/src/api.py", line 60, in get_llm_enhanced_analysis_gemini
+    import google.generativeai as genai
+ModuleNotFoundError: No module named 'google.generativeai'
+INFO:     127.0.0.1:35364 - "GET /available_tests HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [288469]
+INFO:     Started server process [288632]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:53450 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53464 - "GET /available_tests HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'test_complex_scenario.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [288632]
+INFO:     Started server process [288846]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:56702 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56716 - "GET /available_tests HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [288846]
+INFO:     Started server process [289647]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [289647]
+INFO:     Started server process [289795]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [289795]
+INFO:     Started server process [290068]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [290068]
+INFO:     Started server process [290254]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [290254]
+INFO:     Started server process [290575]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'test_warning_display.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [290575]
+INFO:     Started server process [290753]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+⚠️ Gemini API error: No module named 'google.generativeai'
+INFO:     127.0.0.1:47548 - "POST /process_idea HTTP/1.1" 200 OK
+⚠️ Gemini API error: No module named 'google.generativeai'
+INFO:     127.0.0.1:47564 - "POST /process_idea HTTP/1.1" 200 OK
+⚠️ Gemini API error: No module named 'google.generativeai'
+INFO:     127.0.0.1:39304 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37490 - "POST /analyze_scenarios HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37492 - "GET /available_tests HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [290753]
+INFO:     Started server process [293060]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/statistical_utils.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [293060]
+INFO:     Started server process [293532]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'test_mixed_effects.py'. Reloading...
+⚠️ Gemini API error: No module named 'google.generativeai'
+INFO:     127.0.0.1:59452 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59456 - "GET /available_tests HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [293532]
+INFO:     Started server process [293690]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [293690]
+INFO:     Started server process [294713]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [294713]
+INFO:     Started server process [294920]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'src/api.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [294920]
+INFO:     Started server process [295044]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'test_azure_openai.py'. Reloading...
+INFO:     127.0.0.1:53654 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [295044]
+INFO:     Started server process [295356]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:59964 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47406 - "POST /analyze_scenarios HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47420 - "GET /available_tests HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43890 - "POST /process_idea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38912 - "POST /analyze_scenarios HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38916 - "GET /available_tests HTTP/1.1" 200 OK

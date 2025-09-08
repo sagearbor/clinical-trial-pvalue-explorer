@@ -60,6 +60,12 @@ def fetch_available_tests():
         r = requests.get(URL_AVAILABLE, timeout=30)
         if r.status_code == 200:
             data = r.json()
+            # If data is a list, it's the tests directly
+            if isinstance(data, list):
+                # Convert to expected format
+                formatted_tests = [{"test_id": t["value"], "name": t["label"]} for t in data]
+                return [], formatted_tests
+            # Otherwise try the old format
             return data.get('enhanced_test_info', []), data.get('available_tests', [])
         return [], []
     except Exception:
@@ -261,6 +267,16 @@ if run:
                 else:
                     data = r.json()
                     st.session_state.study_analysis = data
+                    
+                    # Display prominent warning if LLM was unavailable
+                    if data.get("llm_warning"):
+                        st.error(f"🚨 {data.get('llm_warning')}")
+                    
+                    if data.get("default_used"):
+                        st.warning("⚠️ Could not detect specific test type from your description. Defaulted to two-sample t-test. Please manually select the appropriate test below if this is incorrect.")
+                    elif data.get("fallback_mode"):
+                        st.info("ℹ️ Using pattern matching to detect test type (LLM unavailable). Please verify the suggestion is appropriate.")
+                    
                     st.session_state.llm_provider_used = data.get("llm_provider_used")
                     st.session_state.suggested_test_type = data.get("suggested_study_type", "two_sample_t_test")
                     st.session_state.selected_test_type = st.session_state.suggested_test_type

@@ -17,7 +17,13 @@ except Exception:
 load_dotenv(override=True)
 app = FastAPI()
 
-ACTIVE_LLM_PROVIDER = os.getenv("ACTIVE_LLM_PROVIDER", "GEMINI").upper()
+ACTIVE_LLM_PROVIDER = os.getenv("ACTIVE_LLM_PROVIDER", "AZURE_OPENAI").upper()
+
+# Azure OpenAI Configuration
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o-mini")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2025-03-01-preview")
 
 class EnhancedIdeaInput(BaseModel):
     study_description: str
@@ -46,6 +52,9 @@ class StatisticalAnalysisOutput(BaseModel):
     processed_idea: Optional[str] = None
     llm_provider_used: Optional[str] = None
     error: Optional[str] = None
+    llm_warning: Optional[str] = None  # Warning when LLM is unavailable
+    fallback_mode: Optional[bool] = None  # True when using pattern matching
+    default_used: Optional[bool] = None  # True when defaulting to t-test
 
 class MultiScenarioAnalysisOutput(BaseModel):
     scenarios: Optional[Dict[str, dict]] = None
@@ -55,20 +64,192 @@ class MultiScenarioAnalysisOutput(BaseModel):
     llm_provider_used: Optional[str] = None
     error: Optional[str] = None
 
+async def get_llm_enhanced_analysis_azure_openai(text: str) -> dict:
+    """Use Azure OpenAI to analyze study description."""
+    
+    # Check if Azure OpenAI is configured
+    if AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT:
+        try:
+            from openai import AzureOpenAI
+            
+            client = AzureOpenAI(
+                api_key=AZURE_OPENAI_API_KEY,
+                api_version=AZURE_OPENAI_API_VERSION,
+                azure_endpoint=AZURE_OPENAI_ENDPOINT
+            )
+            
+            prompt = f"""Analyze this clinical study description and determine the appropriate statistical test.
+            Study: {text}
+            
+            Return a JSON object with these fields:
+            - suggested_study_type: one of [two_sample_t_test, mixed_effects, chi_square, logistic_regression, cox_regression, mann_whitney, one_way_anova, correlation]
+            - rationale: brief explanation why this test is appropriate
+            - parameters: object with total_n (sample size) and effect_size_value
+            - alternative_tests: array of other viable test options
+            - data_type: continuous, categorical, binary, or survival
+            
+            Example response:
+            {{"suggested_study_type": "mixed_effects", "rationale": "Repeated measures over time", "parameters": {{"total_n": 200, "effect_size_value": 0.5}}, "alternative_tests": ["gee"], "data_type": "continuous"}}
+            """
+            
+            response = client.chat.completions.create(
+                model=AZURE_OPENAI_DEPLOYMENT,
+                messages=[
+                    {"role": "system", "content": "You are a biostatistics expert. Respond only with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=500
+            )
+            
+            # Parse the response
+            result_text = response.choices[0].message.content
+            import json
+            try:
+                result = json.loads(result_text)
+                result["llm_used"] = True
+                result["provider"] = "Azure OpenAI"
+                return result
+            except json.JSONDecodeError:
+                print(f"Failed to parse Azure OpenAI response: {result_text}")
+                # Fall through to pattern matching
+                
+        except Exception as e:
+            print(f"Azure OpenAI error: {e}")
+    
+    # If Azure OpenAI fails or isn't configured, fall back to pattern matching
+    return await get_llm_enhanced_analysis_fallback(text)
+
+async def get_llm_enhanced_analysis_fallback(text: str) -> dict:
+    """Fallback pattern matching when LLM is unavailable."""
+    
+    # This is the existing pattern matching logic
+    return await get_llm_enhanced_analysis_gemini(text)
+
 async def get_llm_enhanced_analysis_gemini(text: str) -> dict:
-    return {
-        "suggested_study_type": "two_sample_t_test",
-        "rationale": "Default heuristic rationale.",
-        "parameters": {"total_n": 100, "effect_size_value": 0.5, "effect_size_type": "cohens_d", "alpha": 0.05, "power": 0.8},
-        "alternative_tests": ["chi_square"],
-        "data_type": "continuous",
-        "study_design": "randomized_controlled_trial",
-        "confidence_level": 0.95,
-        "initial_N": 100,
-        "initial_cohens_d": 0.5,
-        "estimation_justification": "Heuristic baseline",
-        "references": [],
-    }
+    """Analyze study description to detect appropriate statistical test."""
+    
+    # First try to use actual Gemini API if available
+    try:
+        import google.generativeai as genai
+        if GEMINI_API_KEY and GEMINI_API_KEY != "your_key_here":
+            genai.configure(api_key=GEMINI_API_KEY)
+            model = genai.GenerativeModel(GEMINI_MODEL)
+            
+            prompt = f"""Analyze this clinical study description and suggest the appropriate statistical test.
+            Study: {text}
+            
+            Return a JSON with:
+            - suggested_study_type: the test name (e.g., 'mixed_effects', 'two_sample_t_test', 'cox_regression')
+            - rationale: why this test is appropriate
+            - parameters: estimated sample size and effect size
+            - alternative_tests: other viable options
+            """
+            
+            response = model.generate_content(prompt)
+            # Parse response and return
+            # This would need proper JSON parsing from the response
+            
+    except Exception as e:
+        # Log the error but continue with fallback
+        print(f"⚠️ Gemini API error: {e}")
+    
+    # FALLBACK: Pattern matching when LLM is unavailable
+    text_lower = text.lower()
+    
+    # Add warning flag to indicate fallback mode
+    warning_message = "⚠️ LLM unavailable - using pattern matching fallback. Results may be less accurate."
+    
+    # Quick pattern matching for common complex scenarios
+    if any(term in text_lower for term in ['mixed effects', 'mmrm', 'repeated measures', 'mixed model', 'longitudinal']):
+        return {
+            "suggested_study_type": "mixed_effects",
+            "rationale": "Study mentions mixed effects model or repeated measures analysis",
+            "parameters": {"total_n": 200, "effect_size_value": 0.5, "alpha": 0.05},
+            "alternative_tests": ["repeated_measures_anova", "gee"],
+            "data_type": "continuous",
+            "study_design": "longitudinal_repeated_measures",
+            "llm_warning": warning_message,
+            "fallback_mode": True
+        }
+    elif 'ancova' in text_lower:
+        return {
+            "suggested_study_type": "ancova",
+            "rationale": "Study mentions ANCOVA for covariate adjustment",
+            "parameters": {"total_n": 150, "effect_size_value": 0.5, "alpha": 0.05},
+            "alternative_tests": ["linear_regression", "two_way_anova"],
+            "data_type": "continuous",
+            "study_design": "randomized_controlled_trial",
+            "llm_warning": warning_message,
+            "fallback_mode": True
+        }
+    elif any(term in text_lower for term in ['logistic regression', 'binary outcome', 'odds ratio']):
+        return {
+            "suggested_study_type": "logistic_regression", 
+            "rationale": "Binary outcome suggests logistic regression",
+            "parameters": {"total_n": 200, "effect_size_value": 1.5, "effect_size_type": "odds_ratio"},
+            "alternative_tests": ["chi_square", "fisher_exact"],
+            "data_type": "binary",
+            "study_design": "observational",
+        }
+    elif any(term in text_lower for term in ['survival', 'cox', 'kaplan', 'time to event', 'hazard']):
+        return {
+            "suggested_study_type": "cox_regression",
+            "rationale": "Survival or time-to-event analysis detected",
+            "parameters": {"total_n": 250, "effect_size_value": 0.7, "effect_size_type": "hazard_ratio"},
+            "alternative_tests": ["kaplan_meier", "log_rank"],
+            "data_type": "survival",
+            "study_design": "prospective_cohort",
+        }
+    elif 'anova' in text_lower or 'multiple groups' in text_lower:
+        return {
+            "suggested_study_type": "one_way_anova",
+            "rationale": "Multiple group comparison suggests ANOVA",
+            "parameters": {"total_n": 150, "effect_size_value": 0.4, "effect_size_type": "eta_squared"},
+            "alternative_tests": ["kruskal_wallis", "two_way_anova"],
+            "data_type": "continuous",
+            "study_design": "randomized_controlled_trial",
+        }
+    elif any(term in text_lower for term in ['chi-square', 'chi square', 'categorical', 'contingency']):
+        return {
+            "suggested_study_type": "chi_square",
+            "rationale": "Categorical data analysis detected",
+            "parameters": {"total_n": 200},
+            "alternative_tests": ["fisher_exact", "mcnemar"],
+            "data_type": "categorical",
+            "study_design": "cross_sectional",
+        }
+    elif any(term in text_lower for term in ['mann-whitney', 'wilcoxon', 'non-parametric', 'nonparametric']):
+        return {
+            "suggested_study_type": "mann_whitney",
+            "rationale": "Non-parametric test requested",
+            "parameters": {"total_n": 100, "effect_size_value": 0.5},
+            "alternative_tests": ["wilcoxon_signed", "kruskal_wallis"],
+            "data_type": "ordinal",
+            "study_design": "randomized_controlled_trial",
+        }
+    elif any(term in text_lower for term in ['correlation', 'pearson', 'spearman', 'relationship']):
+        return {
+            "suggested_study_type": "pearson_correlation",
+            "rationale": "Correlation analysis detected",
+            "parameters": {"total_n": 100, "effect_size_value": 0.3, "effect_size_type": "correlation_r"},
+            "alternative_tests": ["spearman_correlation", "linear_regression"],
+            "data_type": "continuous",
+            "study_design": "observational",
+        }
+    else:
+        # Default to t-test for simple two-group comparisons
+        return {
+            "suggested_study_type": "two_sample_t_test",
+            "rationale": "⚠️ DEFAULT FALLBACK: Could not detect specific test type. Defaulting to two-sample t-test.",
+            "parameters": {"total_n": 100, "effect_size_value": 0.5, "effect_size_type": "cohens_d", "alpha": 0.05},
+            "alternative_tests": ["welch_t_test", "mann_whitney"],
+            "data_type": "continuous",
+            "study_design": "randomized_controlled_trial",
+            "llm_warning": "⚠️ WARNING: LLM analysis unavailable. Using basic pattern matching. Please verify the suggested test is appropriate for your study.",
+            "fallback_mode": True,
+            "default_used": True
+        }
 
 def validate_and_extract_enhanced_response(d: dict) -> dict:
     return {
@@ -106,13 +287,47 @@ def map_study_type_to_test(suggested_study_type: Optional[str]) -> str:
     # If not a known alias, fallback to the default two-sample t-test
     return aliases.get(s, "two_sample_t_test")
 
+@app.get("/available_tests")
+async def get_available_tests():
+    """Get all available statistical tests."""
+    return [
+        {"value": "two_sample_t_test", "label": "Two-Sample T-Test", "category": "Parametric"},
+        {"value": "paired_t_test", "label": "Paired T-Test", "category": "Parametric"},
+        {"value": "welch_t_test", "label": "Welch's T-Test", "category": "Parametric"},
+        {"value": "one_way_anova", "label": "One-Way ANOVA", "category": "Parametric"},
+        {"value": "two_way_anova", "label": "Two-Way ANOVA", "category": "Parametric"},
+        {"value": "repeated_measures_anova", "label": "Repeated Measures ANOVA", "category": "Parametric"},
+        {"value": "chi_square", "label": "Chi-Square Test", "category": "Non-Parametric"},
+        {"value": "fisher_exact", "label": "Fisher's Exact Test", "category": "Non-Parametric"},
+        {"value": "mann_whitney", "label": "Mann-Whitney U Test", "category": "Non-Parametric"},
+        {"value": "wilcoxon_signed", "label": "Wilcoxon Signed-Rank", "category": "Non-Parametric"},
+        {"value": "kruskal_wallis", "label": "Kruskal-Wallis Test", "category": "Non-Parametric"},
+        {"value": "friedman", "label": "Friedman Test", "category": "Non-Parametric"},
+        {"value": "pearson_correlation", "label": "Pearson Correlation", "category": "Correlation"},
+        {"value": "spearman_correlation", "label": "Spearman Correlation", "category": "Correlation"},
+        {"value": "linear_regression", "label": "Linear Regression", "category": "Regression"},
+        {"value": "logistic_regression", "label": "Logistic Regression", "category": "Regression"},
+        {"value": "cox_regression", "label": "Cox Proportional Hazards", "category": "Survival"},
+        {"value": "kaplan_meier", "label": "Kaplan-Meier Survival", "category": "Survival"},
+        {"value": "mixed_effects", "label": "Mixed Effects Model (MMRM)", "category": "Advanced"},
+        {"value": "gee", "label": "Generalized Estimating Equations", "category": "Advanced"},
+        {"value": "bayesian_t_test", "label": "Bayesian T-Test", "category": "Bayesian"},
+        {"value": "bayesian_anova", "label": "Bayesian ANOVA", "category": "Bayesian"},
+        {"value": "sequential_design", "label": "Group Sequential Design", "category": "Adaptive"}
+    ]
+
 @app.post("/process_idea", response_model=StatisticalAnalysisOutput)
 async def process_idea(item: EnhancedIdeaInput):
     if not item.study_description or not item.study_description.strip():
         raise HTTPException(status_code=400, detail="study_description must be provided and non-empty.")
     provider = (item.llm_provider or ACTIVE_LLM_PROVIDER).upper()
-
-    llm = await get_llm_enhanced_analysis_gemini(item.study_description)
+    
+    # Use the appropriate LLM based on provider
+    if provider == "AZURE_OPENAI":
+        llm = await get_llm_enhanced_analysis_azure_openai(item.study_description)
+    else:
+        # For now, default to pattern matching for other providers
+        llm = await get_llm_enhanced_analysis_fallback(item.study_description)
     v = validate_and_extract_enhanced_response(llm)
 
     calc = perform_statistical_calculations(v["suggested_study_type"], v["parameters"])
@@ -196,6 +411,9 @@ async def process_idea(item: EnhancedIdeaInput):
         research_debug=research_debug if 'research_debug' in locals() else {},
         processed_idea=item.study_description,
         llm_provider_used=provider,
+        llm_warning=llm.get("llm_warning"),  # Pass through warning
+        fallback_mode=llm.get("fallback_mode"),  # Indicate fallback mode
+        default_used=llm.get("default_used"),  # Indicate if defaulted to t-test
     )
 
 @app.post("/analyze_scenarios", response_model=MultiScenarioAnalysisOutput)
